@@ -1,14 +1,16 @@
-setwd("C:/Users/David CM/Desktop")
 
 library(cooccur);library(tidyverse);library(qgraph)
 library(network);library(ggnetwork);library(viridis)
+library(igraph)
 #LOAD 2Coocurrence - species.csv
 #load dataset
-load("abun_macro_sp.RData")
-traits <-read.csv("tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
+load("data/abun_macro_sp.RData")
+traits <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
+# Transform traits to 1 or 0 (losing affiliations)
 traits[,11:ncol(traits)] <- ifelse(traits[,11:ncol(traits)]>=1,1,0)
 
-# Check presence
+# Check presence and filte the dataset according the existing genus
+# Changing manually names and assigning the names to networks
 indv.l <- indv.l %>% filter(genus%in%traits$Genus..if.description.at.this.level.) %>% 
   mutate(Network = case_when(
     str_detect(codi_lloc,"CLOT")~ "GUILS",
@@ -26,61 +28,42 @@ indv.l <- indv.l %>% filter(genus%in%traits$Genus..if.description.at.this.level.
     TRUE ~ "altres" )) %>% 
   filter(Network=="ALBERA")#, codi_lloc== "SERR")
 
+# Generating the trait presence data (spp x trait) to later run the coocurrence
 traits_ind <- indv.l %>% ungroup() %>% group_by(genus) %>% summarise(tot_ab=sum(indv.l)) %>% 
   left_join(traits, by=c("genus"="Genus..if.description.at.this.level."),multiple ="all") %>% 
   group_by(genus) %>% filter(n()<2) %>% 
   select(c(1,12:ncol(.))) %>% na.omit() %>% tibble::column_to_rownames("genus")
 
-#run analysis
+# Run coocurrence analysis
 cooccur.species_ccr <- cooccur(mat = t(traits_ind), type = "spp_site", thresh = T, spp_names = TRUE)
 class(cooccur.species_ccr)
 summary(cooccur.species_ccr)
 #all pairs probabilities analysis
-#sink("pair_table.txt")
 prob.table(cooccur.species_ccr)
-#sink()
 
+# Generate an adjacency table from the coocurrence matrix 
+## Create a blank table with only 0 
 adj_table <- matrix(nrow =cooccur.species_ccr$species,ncol = cooccur.species_ccr$species,data = 0)
-for (row_ID in 1:length(unique(cooccur.species_ccr$results$sp1))) {
+for (row_ID in 1:length(unique(cooccur.species_ccr$results$sp1))) {# do the following for each spp
+# Summarise the strenght of the link for each genus by calulating the mean probability
 link_weight <- cooccur.species_ccr$results %>% group_by(sp1,sp2) %>% summarise(mean_prob=mean(prob_cooccur))
-spp_to <- cooccur.species_ccr$results %>% filter(sp1==unique(cooccur.species_ccr$results$sp1)[row_ID])
+# filter the results from the coocurrence table for a species. You isolate all the species with who the 
+## targeted species is coocuring
+spp_to <- cooccur.species_ccr$results %>% 
+          filter(sp1==unique(cooccur.species_ccr$results$sp1)[row_ID])
+# You add the values into the "adj.table" that was empty and now is being filled
 adj_table[unique(spp_to$sp1),spp_to$sp2] <- spp_to$prob_cooccur
 }
+# We transpose the results to make the matrix symetrical (same from & to links)
 adj_table[lower.tri(adj_table)] <- t(adj_table)[lower.tri(adj_table)]
 
-
+# We built a graph from the adjacency table
 g <- igraph::graph_from_adjacency_matrix(adj_table,weighted = T)
 
 
-igraph::graph.density(g)
+# Plots
 
-
-
-graph_SERR <- g
-
-g<- graph_SERR
-
-
-library(qgraph)
-graph_GUILS <- g
-link_weight_GUILS <- link_weight
-  
-graph_ALBERA <- g
-link_weight_ALBERA <- link_weight
-
-
-
-
-
-# Pñlots
-g <- graph_GUILS
-link_weight <- link_weight_GUILS
-
-# Paleta de colors vertices
-vert_col <- bind_rows(link_weight %>% group_by(s=sp1) %>% summarise(Mean_meanProb=mean(mean_prob)),
-link_weight %>% group_by(s=sp2) %>% summarise(Mean_meanProb=mean(mean_prob))) %>% 
-group_by(s) %>% summarise(Mean_VertexProb=mean(Mean_meanProb))
-
+#Layout type 1 
 # Layout plot (distància entre nodes=weight dels nodes)
 minC <- rep(-Inf, length(igraph::V(g)))
 maxC <- rep(Inf, length(igraph::V(g)))
@@ -108,16 +91,11 @@ a <- ggplot(n, layout=as.matrix(l),aes(x = x, y = y, xend = xend, yend = yend))+
         axis.ticks = element_blank(),
         panel.background=element_blank())
 
-g <- graph_ALBERA
-link_weight <- link_weight_ALBERA
-
-# Paleta de colors vertices
-vert_col <- bind_rows(link_weight %>% group_by(s=sp1) %>% summarise(Mean_meanProb=mean(mean_prob)),
-                      link_weight %>% group_by(s=sp2) %>% summarise(Mean_meanProb=mean(mean_prob))) %>% 
-  group_by(s) %>% summarise(Mean_VertexProb=mean(Mean_meanProb))
 
 # Layout plot (distància entre nodes=weight dels nodes)
-l <- qgraph.layout.fruchtermanreingold(e,vcount=vcount(g),area=8*(vcount(g)^2),repulse.rad=(vcount(g)^3.1))
+l <- qgraph::qgraph.layout.fruchtermanreingold(e,vcount=vcount(g),area=8*(vcount(g)^2),
+                                               repulse.rad=(vcount(g)^3.1))
+
 colnames(l) <- c("x","y")
 library(network);library(ggnetwork);library(viridis)
 n<- network(as.matrix(as_adjacency_matrix(g)), directed=F, diag=T)
