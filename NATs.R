@@ -1,13 +1,24 @@
 
-library(cooccur);library(tidyverse);library(qgraph)
-library(network);library(ggnetwork);library(viridis)
-library(igraph)
-#LOAD 2Coocurrence - species.csv
-#load dataset
-load("data/abun_macro_sp.RData")
+### TRAITS DATABASE ####
+
+# Install biomonitoR
+library(devtools)
+install_github("alexology/biomonitoR", ref = "main", build_vignettes = TRUE)
+library(biomonitoR)
+
+# We need to check the matching between traits and our databases
 traits <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
 # Transform traits to 1 or 0 (losing affiliations)
 traits[,11:ncol(traits)] <- ifelse(traits[,11:ncol(traits)]>=1,1,0)
+
+
+
+library(cooccur);library(tidyverse);library(qgraph)
+library(network);library(ggnetwork);library(viridis);library(igraph)
+#LOAD 2Coocurrence - species.csv
+#load dataset
+load("data/abun_macro_sp.RData")
+
 
 # Check presence and filte the dataset according the existing genus
 # Changing manually names and assigning the names to networks
@@ -131,6 +142,9 @@ dev.off()
 values_CLOTS6 <- igraph::eigen_centrality(g)$vector
 
 gridExtra::grid.arrange(a,b)
+
+
+
 
 
 summary(lm(
