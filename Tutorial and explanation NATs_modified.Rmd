@@ -1,0 +1,285 @@
+---
+title: "Tutorial with RETROMED data"
+author: "David Cunillera-Montcusí"
+date: "2023-07-06"
+output: rmdformats::downcute
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  encoding=encoding,
+  output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+  rmarkdown::render(input_file,
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T,
+                      results = "hide",
+                      message=FALSE, warning=FALSE)
+```
+
+## A tutorial with the RETROMED data to elaborate NATs
+
+Hi! I am David! Basically I wrote everything in Rmarkdown because might
+be easy to read and the tutorial with explanations and text next to the
+chunks than a script with lots of #. But anyway, this document is to
+somehow condensate all the information that I did during the workshop in
+Girona un June (12,13,14 of 2023). So, let's begin!
+
+```{r set library  , eval=FALSE}
+# Charging packages
+library(cooccur) # calculate coocurrance matrices 
+library(tidyverse) # managing data.frames and organize and edit them
+library(qgraph) # qgraph is a package for generating graphs and containing different types of graph settings
+library(network) # a package to manage and create "network" like objects to plot
+library(ggnetwork) # plotting networks in a ggplot environment
+library(viridis) # colours for colour-sensitive persons 
+library(igraph) # classic and mostly used package for network calculation 
+```
+
+We charged the packages and all the needed functions. Now we need the
+data which basically consists on two things: 1. Traits information for
+all the species (a Tachete database that Stephi had) 2. Abundance data
+from the RETROMED project that includes 3 pond networks.\
+- Albera - Giara - Guils de cerdanya
+
+We transform affinities to work with only presence/absence of traits in
+a species. Simply we agreed that might be easier to interpret the
+resulting coocurrence network. In this sense, we are just considering
+the possibility of trait combinations to exist and we do not consider if
+this combinations are "stronger" or weaker".
+
+```{r traits and data , eval=FALSE}
+# Traits database 
+traits1 <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
+traits2 <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
+# Transform traits to 1 or 0 (losing affiliations)
+traits1[,11:ncol(traits1)] <- ifelse(traits1[,11:ncol(traits1)]>=1,1,0)#all afiliations higher than 1 have a 1
+traits2[,11:ncol(traits2)] <- ifelse(traits2[,11:ncol(traits2)]>=2,1,0)#only afiliations higher or equal to 2 has a 1.
+
+# Load dataset from retromed
+load("data/Retromed/abun_macro_sp.RData")
+indv.l # we will use the individual values
+
+head(traits)
+head(indv.l)
+```
+
+Once charged, we need to organize the dataset and create an "label" that
+organizes the samples in the corresponding pond network. Also, we need
+to filter the traits database with the genus that have been found in the
+retromed. So, first we just add the label ALBERA/GUILS/GIARA to the
+corresponding ponds.
+
+```{r depuration database , eval=FALSE}
+# Check presence
+db_indv.l <- indv.l %>% filter(genus%in%traits$Genus..if.description.at.this.level.) %>% # Filter retormed genus from trait database 
+  mutate(Network = case_when( # Assign the network names to each sample.  
+    str_detect(codi_lloc,"CLOT")~ "GUILS",
+    str_detect(codi_lloc,"CANB")~ "ALBERA",
+    str_detect(codi_lloc,"CANG")~ "ALBERA",
+    str_detect(codi_lloc,"CANP")~ "ALBERA",
+    str_detect(codi_lloc,"DELF")~ "ALBERA",
+    str_detect(codi_lloc,"FAIG")~ "ALBERA",
+    str_detect(codi_lloc,"GUTC")~ "ALBERA",
+    str_detect(codi_lloc,"GUTR")~ "ALBERA",
+    str_detect(codi_lloc,"SERR")~ "ALBERA",
+    str_detect(codi_lloc,"TORC")~ "ALBERA",
+    str_detect(codi_lloc,"TORG")~ "ALBERA",
+    str_detect(codi_lloc,"TORP")~ "ALBERA",
+    str_detect(codi_lloc,"B1")~ "GIARA",
+    str_detect(codi_lloc,"B2")~ "GIARA",
+    str_detect(codi_lloc,"B3")~ "GIARA",
+    str_detect(codi_lloc,"E1")~ "GIARA",
+    str_detect(codi_lloc,"E3")~ "GIARA",
+    str_detect(codi_lloc,"M4")~ "GIARA",
+    str_detect(codi_lloc,"M5")~ "GIARA",
+    str_detect(codi_lloc,"M7")~ "GIARA",
+    str_detect(codi_lloc,"S4")~ "GIARA",
+    str_detect(codi_lloc,"S5")~ "GIARA",
+    str_detect(codi_lloc,"S6")~ "GIARA",
+    TRUE ~ "altres" ))
+
+head(db_indv.l)
+```
+
+Now we have our database ready to go and we can filter by the network
+and therefore work for each unit of interest (Albera, Giara, Guils). The
+next step is to built the trait database that we will use to calculate
+the coocurrence matrix. This trait database is basically obtaining the
+speciesxtrait matrix that we want to use to calculate coocurrences. It
+is an easy task and we only need some lines of code to make things match
+(specially the lines come to depurate the database that is a bit "messy"
+and are just to use them as example). Find below an example with only
+Albera network
+
+```{r filter and create the basic dataste , eval=FALSE}
+
+db_indv.l <- db_indv.l %>% filter(Network=="ALBERA") # We filter to obtain the ponds the network of the Albera
+
+traits_ind <- db_indv.l %>% 
+              ungroup() %>% # just in case 
+              group_by(genus) %>% # we group by genus 
+              summarise(tot_ab=sum(indv.l)) %>% # we sum the abundance of genus in the whole network
+              left_join(traits, by=c("genus"="Genus..if.description.at.this.level."),multiple ="all") %>% # join traits with the genus of the traits database
+              group_by(genus) %>% # regroup by genus
+              filter(n()<2) %>% # filter those species that are listed 2 times (by mistake), check which are these in case that there are some. It means mistakes.
+              select(c(1,12:ncol(.))) %>% # select the columns with only traits
+              na.omit() %>% # NA elimination
+              tibble::column_to_rownames("genus") # we attach genus as rownames
+
+head(traits_ind)
+```
+
+Everything is ready! This is the type of table that we need to have for
+running our trait coocurrence matrix. We have the *genus* in each row
+and the *traits* (in 1/0) in each column. This is the "key" of all the
+dynamics of the exercise. So, this table is the "core" of all the
+exercise, because this table will be the result of considering more or
+less ponds of the network. As a consequence, each change in this
+database will have a consequence in the network and the values that we
+will obtain later. So, it is in building this table that we are actually
+"doing" the work (adding more or less sites, adding sites in a different
+way, etcetera)
+
+So let's do the coocurrence analysis!
+
+```{r coocurrence , eval=FALSE}
+#run analysis (takes a bit)
+cooccur.species_ccr <- cooccur(mat = t(traits_ind), type = "spp_site", thresh = T, spp_names = TRUE)
+# this script comes from the supplementary material of the "original" NAT's paper (DOI: 10.1002/eap.2010)
+# Note that we transpose the matrix (t())
+
+head(cooccur.species_ccr)
+```
+
+As we can see there is a lot of results but basically we have columns
+indicating each "sp" (AKA=traits) and their combinations and the
+"prob_coocur" column which is indicating the probability of these two
+"species" being found in the same site (in other words, coocurring).
+Remember that in our case sp=traits site=genus. In summary, it is giving
+us the probability of a combination of traits (Sp1 and Sp2) is found in
+the community that we considered and therefore, how often do we observe
+this combination of traits in our community species.
+
+This logic at the end is the "ecological" meaning that we give to the
+links and the networks. If all the communities are very similar among
+them the trait combinations that will have high probabilities of being
+together will be the same all the time and the network will "look the
+same". On the other hand if they differ, the network will start to
+change and we will detect that alteration.
+
+So let's built a network out of the information that we have. Actually,
+the network is already built because we already have "who is connected
+to who" and the strength of this connection. Sp1 and Sp2 are indicating
+who is connected to who and the "prob_coocur" is the strength of this
+link. To built the network we just need to translate this information
+into a matrix of traits x traits (or in network/"igraph" language, an
+adjacency matrix).
+
+```{r network matrix and graph , eval=FALSE}
+# Generate an adjacency table from the coocurrence matrix 
+## Create a blank table with only 0 
+adj_table <- matrix(nrow =cooccur.species_ccr$species,ncol = cooccur.species_ccr$species,data = 0)
+
+for (row_ID in 1:length(unique(cooccur.species_ccr$results$sp1))) {# do the following for each spp
+# Summarise the strenght of the link for each genus by calulating the mean probability
+link_weight <- cooccur.species_ccr$results %>% group_by(sp1,sp2) %>% summarise(mean_prob=mean(prob_cooccur))
+# filter the results from the coocurrence table for a species. You isolate all the species with who the 
+## targeted species is coocuring
+spp_to <- cooccur.species_ccr$results %>%filter(sp1==unique(cooccur.species_ccr$results$sp1)[row_ID])
+# You add the values into the "adj.table" that was empty and now is being filled
+adj_table[unique(spp_to$sp1),spp_to$sp2] <- spp_to$prob_cooccur
+}
+# We transpose the results to make the matrix symetrical (same from & to links)
+adj_table[lower.tri(adj_table)] <- t(adj_table)[lower.tri(adj_table)]
+
+# We built a graph from the adjacency table
+g <- igraph::graph.adjacency(adj_table,mode="undirected",weighted = TRUE)
+```
+
+Well done! It is already done! With this you just generated a graph (g)
+that contains de information of your coocurrence netowrk of traits! So,
+you now can calculate whatever value from this graph that informs you
+about how this network is structured. There is plenty of metrics and
+variables that you can calculate BUT you must be aware of what they mean
+and more importantly "on what" you are calculating these metrics. In
+general there are "global" metrics (e.g., diameter, edge density) or
+"per node" metrics (e.g. degree, closeness, betweenness). For global
+metrics you will obtain 1 value for the whole network while for "per
+node" metrics you will get a value for each one of the nodes of your
+network (in our case for each trait). ALSO, be aware of the "scale" that
+each metric is considering! Degree counts de number of neighbors that a
+node has while closeness average the path lengths to all network
+nodes... this implies that different metrics can capture connectivity at
+different levels of the network!
+
+Last warning! In general we use "igraph" package (kind of the trendy
+one) but there is also "sna" that can be quite useful for some things.
+HOWEVER, both packages have functions with the same names!!! This can
+generate conflicts and we must be careful with it (I tend to write
+igraph::function or sna::function to always be sure) ;)
+
+```{r some network metrics , eval=FALSE}
+edge_dens_man <- length(igraph::E(g))/(((ncol(traits_ind)*(ncol(traits_ind)-1)))/2)
+edge_dens <- igraph::edge_density(g)
+mean_grStre <- mean(igraph::graph.strength(g))
+sd_grStre <- sd(igraph::graph.strength(g))
+medi_grStre <- median(igraph::graph.strength(g))
+min_grStre <- min(igraph::graph.strength(g))
+max_grStre <- max(igraph::graph.strength(g))
+```
+
+Finally, what is always more nice to do with networks is to plot them!
+However, this can be a bit messy as there are several packages and
+things to use... it is a bit as doing a basic plot, there is 1934320
+ways to do it and 230493204923 packages to achieve it. I am quite use to
+work with "tidyverse" and therefore the "ggplot" kind of approach. So,
+my recommendation is based on that but I found that is the most easy
+(for me!).
+
+In our NAT however, the representation of the network is a bit meh...
+because we do not have a "distance" or an x,y coordinates that can be
+used as a "layout". For this, we use "The Fruchterman-Reingold layout
+algorithm" that it basically considers the weight of each vertice (AKA
+node) to place it in the space (kind of a "distance" measure).
+
+```{r Fruchterman-Reingold , eval=FALSE }
+# Layout plot (distance between nodes based on the links weight)
+l <- igraph::layout_with_fr(g,start.temp = 1500)#start.temp is what allows more or less "movement" along the axis. High values make more "sparse" graphs but also they are "far" from reality. Smaller values make more "dense" graphs that provide less visual information. Balanxce between both levels must be achieved. 
+colnames(l) <- c("x","y")
+```
+
+Once we have the "layout" we can built our ggplot. Basically I use the
+setting provided by the network and ggnetwork packages that allow to
+draw the newtork in a ggplot-like enviornment. To do this, we first need
+to "destroy" our previous graph into a matrix than can be understood as
+a "network" object. Then we will add the parameters that we want to use
+to plot and color the graph. Depending if we want to add these
+parameters to the nodes (vertices) or to the links (edges) we will need
+to add %v% or %e% correspondingly. This will make much more easy the
+setting of colour/fill/size/alpha and other aesthetic parameters.
+
+```{r plot  , eval=FALSE}
+library(network);library(ggnetwork);library(viridis) # Packages
+
+n<- network(as.matrix(igraph::as_adjacency_matrix(g)), directed=F) # Newtork creation
+# Setting the parameters that we want to use. You can add as many parameters as you wish. 
+n %v% "Mean_Prob" <- igraph::eigen_centrality(g)$vector # Weighted degree
+n %v% "FreqTRAIT" <-apply(ifelse(traits_ind>0,1,0),2,sum) # Trait frequency
+n %e% "Edg_values" <-igraph::E(g)$weight # Edge weights (coocurrence probability)
+
+# The plot per se
+ggplot(n, 
+       layout=as.matrix(l),aes(x = x, y = y, xend = xend, yend = yend))+ # We need to set the layout that we created. Remember that this is just to have an x and y coordinates. 
+  geom_edges(aes(color =Edg_values, size=Edg_values),arrow=arrow(angle = 20),curvature = 0.15)+ # Information and aesthetics of the edges
+  geom_nodes(aes(size=FreqTRAIT, fill=Mean_Prob),color="black" ,shape=21)+ # Information and aesthetics of the edges
+  # From here onwards everythign is like a normal ggplot... 
+  scale_color_viridis(direction = -1,option = "D")+
+  scale_fill_viridis(direction = -1,option = "A")+labs(title="")+
+  theme_classic()+
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.background=element_blank())
+```
