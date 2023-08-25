@@ -1,5 +1,5 @@
 ---
-title: "Tutorial with RETROMED data"
+title: "Tutorial with LAKES data"
 author: "David Cunillera-Montcusí"
 date: "2023-07-06"
 output: rmdformats::downcute
@@ -59,53 +59,27 @@ traits1[,11:ncol(traits1)] <- ifelse(traits1[,11:ncol(traits1)]>=1,1,0)#all afil
 traits2[,11:ncol(traits2)] <- ifelse(traits2[,11:ncol(traits2)]>=2,1,0)#only afiliations higher or equal to 2 has a 1.
 
 # Load dataset from retromed
-load("data/Retromed/abun_macro_sp.RData")
-indv.l # we will use the individual values
+load("data/Lakes/macros_lakes_list.xlsx")
+inv.l # we will use the individual values
 
 head(traits)
-head(indv.l)
+head(macros_lakes_list)
 ```
 
-Once charged, we need to organize the dataset and create an "label" that
-organizes the samples in the corresponding pond network. Also, we need
-to filter the traits database with the genus that have been found in the
-retromed. So, first we just add the label ALBERA/GUILS/GIARA to the
-corresponding ponds.
+We need to filter the traits database with the genus that have been found in the
+Lakes. 
 
 ```{r depuration database , eval=FALSE}
 # Check presence
-db_indv.l <- indv.l %>% filter(genus%in%traits$Genus..if.description.at.this.level.) %>% # Filter retormed genus from trait database 
-  mutate(Network = case_when( # Assign the network names to each sample.  
-    str_detect(codi_lloc,"CLOT")~ "GUILS",
-    str_detect(codi_lloc,"CANB")~ "ALBERA",
-    str_detect(codi_lloc,"CANG")~ "ALBERA",
-    str_detect(codi_lloc,"CANP")~ "ALBERA",
-    str_detect(codi_lloc,"DELF")~ "ALBERA",
-    str_detect(codi_lloc,"FAIG")~ "ALBERA",
-    str_detect(codi_lloc,"GUTC")~ "ALBERA",
-    str_detect(codi_lloc,"GUTR")~ "ALBERA",
-    str_detect(codi_lloc,"SERR")~ "ALBERA",
-    str_detect(codi_lloc,"TORC")~ "ALBERA",
-    str_detect(codi_lloc,"TORG")~ "ALBERA",
-    str_detect(codi_lloc,"TORP")~ "ALBERA",
-    str_detect(codi_lloc,"B1")~ "GIARA",
-    str_detect(codi_lloc,"B2")~ "GIARA",
-    str_detect(codi_lloc,"B3")~ "GIARA",
-    str_detect(codi_lloc,"E1")~ "GIARA",
-    str_detect(codi_lloc,"E3")~ "GIARA",
-    str_detect(codi_lloc,"M4")~ "GIARA",
-    str_detect(codi_lloc,"M5")~ "GIARA",
-    str_detect(codi_lloc,"M7")~ "GIARA",
-    str_detect(codi_lloc,"S4")~ "GIARA",
-    str_detect(codi_lloc,"S5")~ "GIARA",
-    str_detect(codi_lloc,"S6")~ "GIARA",
-    TRUE ~ "altres" ))
+db_indv.l <- macros_lakes_list %>% filter(genus%in%traits$Genus..if.description.at.this.level.) # Filter Lakes genus from trait database 
 
-head(db_indv.l)
+
+head(db_indv.l) #Revisar: falten 82 generes per assignar
+save(db_indv.l, file = "ind_match_tachet.RData")
 ```
 
-Now we have our database ready to go and we can filter by the network
-and therefore work for each unit of interest (Albera, Giara, Guils). The
+Now we have our database ready to go and we can filter by the year
+and therefore work for each unit of interest (1995,1996,1997,...2015). The
 next step is to built the trait database that we will use to calculate
 the coocurrence matrix. This trait database is basically obtaining the
 speciesxtrait matrix that we want to use to calculate coocurrences. It
@@ -116,12 +90,12 @@ Albera network
 
 ```{r filter and create the basic dataste , eval=FALSE}
 
-db_indv.l <- db_indv.l %>% filter(Network=="ALBERA") # We filter to obtain the ponds the network of the Albera
+db_indv.l <- db_indv.l %>% filter(year=="1995") # We filter to obtain the ponds of the year 1995
 
 traits_ind <- db_indv.l %>% 
               ungroup() %>% # just in case 
               group_by(genus) %>% # we group by genus 
-              summarise(tot_ab=sum(indv.l)) %>% # we sum the abundance of genus in the whole network
+              summarise(tot_ab=sum(inv.l)) %>% # we sum the abundance of genus in the whole network
               left_join(traits, by=c("genus"="Genus..if.description.at.this.level."),multiple ="all") %>% # join traits with the genus of the traits database
               group_by(genus) %>% # regroup by genus
               filter(n()<2) %>% # filter those species that are listed 2 times (by mistake), check which are these in case that there are some. It means mistakes.
@@ -130,6 +104,8 @@ traits_ind <- db_indv.l %>%
               tibble::column_to_rownames("genus") # we attach genus as rownames
 
 head(traits_ind)
+load("traits_ind.RData")
+save(traits_ind, file = "traits_ind.RData")
 ```
 
 Everything is ready! This is the type of table that we need to have for
