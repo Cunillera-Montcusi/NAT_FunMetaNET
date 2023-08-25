@@ -45,6 +45,24 @@ traits <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings
 # Transform traits to 1 or 0 (losing affiliations)
 traits[,11:ncol(traits)] <- ifelse(traits[,11:ncol(traits)]>=1,1,0)
 
+# We select the traits that are repeated more than two times (due to different species having been analysed)
+repeated <- traits %>% group_by(Genus..if.description.at.this.level.) %>% 
+                       summarise(number=n()) %>% 
+                       filter(number>1) %>% 
+                       dplyr::select(Genus..if.description.at.this.level.)
+# We can check the complete table for the repeated traits
+traits %>% filter(Genus..if.description.at.this.level.%in%as.vector(repeated)[[1]])
+
+# Based on these traits we can try to summarise their values and somehow "merge" them into one unique category
+traits <- traits %>% group_by(Genus..if.description.at.this.level.) %>% 
+                     mutate_if(is.numeric, ~mean(.)) %>% 
+                     mutate_if(is.numeric, ~ifelse(.<0.5,0,1)) %>%
+                     summarise_if(is.numeric, mean, na.rm = TRUE) #%>%
+                     ## If we activate the pipe below we will be able to check if there are repeated values
+                     #group_by(Genus..if.description.at.this.level.) %>%
+                     #mutate(number=n()) %>% 
+                     #filter(number>1)
+           
 # Load dataset from retromed
 load("data/Retromed/abun_macro_sp.RData")
 indv.l # we will use the individual values
@@ -83,6 +101,21 @@ db_indv.l <- indv.l %>% filter(genus%in%traits$Genus..if.description.at.this.lev
     str_detect(codi_lloc,"S5")~ "GIARA",
     str_detect(codi_lloc,"S6")~ "GIARA",
     TRUE ~ "altres" ))
+
+# We can see that there is a big difference on the nuber of genera from the filtered, the original and the trait matrix
+length(unique(db_indv.l$genus));length(unique(indv.l$genus));length(unique(traits$Genus..if.description.at.this.level.))
+
+# We can check which groups are not found in the Traits database
+unique(as.vector(
+  indv.l %>% filter(!genus%in%traits$Genus..if.description.at.this.level.) %>% ungroup() %>% dplyr::select(genus)
+  )[[1]])
+
+# Based on the list that we have we can see that there are some genus that are being filtered because they are written differently in the databases. For example: 
+# - Diptera and Chironomidae are not always at Genus (e.g. genus Culex is classified as Culicinae) and many Chironomids of this database are at genus 
+## (e.g.Cricotopus, Chironomus, Psectrotanypus) while in the traits they are classified at the Subfamily/Tribe level (e.g. Chironomini).
+# - Oligochaeta are classified as "other Tubificidae (SSC = without capillary setae)" in the traits database while for us is only Tubificidae. 
+
+# So, so far we are in a "cul de sac" where either we address this specific groups by chaning their names according to the database. I think that this will need to be done manually... So checking the "non assigned" genus and going to see how they are indicated in the database and then (if indicated) change the name on our database to make it match with what we want (point: We will have to "merge" some groups like chironomids) 
 
 head(db_indv.l)
 ```
