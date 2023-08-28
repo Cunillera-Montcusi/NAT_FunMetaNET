@@ -29,17 +29,18 @@ output <- data.frame()
 
 ### FIRST LOOP - Years
 for (ind_year in 1:length(years)) {
+cat("We are at year", years[ind_year],"__________________________________________________","\n")
 # We create a "temporary" file filtered according to the year selected. 
 macros_lakes_list_temp <- macros_lakes_list %>% filter(year==years[ind_year])
 # All lakes of that year
 year_lakes <- unique(macros_lakes_list_temp$site)
 
 ### SECOND LOOP - Number of randomly selected lakes
-for (rand_selection in seq(1,length(year_lakes),2)) {
-
+for (rand_selection in seq(1,length(year_lakes),10)) {
+cat("We have seleted", rand_selection,"lakes","__________________________________________________","\n")
 ### THIRD LOOP - We will repeat the same thing  several times  
 for (iteration in 1:10) {
-
+cat("We are at iteration", iteration,"__________________________________________________","\n")
 # We randomly select lake names
 select_lakes <- sample(year_lakes, # The vector we want to select things from 
                        size =rand_selection, # The number of elements that we want to select
