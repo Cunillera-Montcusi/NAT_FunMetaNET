@@ -57,9 +57,9 @@ traits_ind <- db_indv.l %>%
   #group_by(genus) %>% # we group by genus 
   #summarise(tot_ab=sum(inv.l)) %>% # we sum the abundance of genus in the whole network
   left_join(traits, by=c("genus"="Genus..if.description.at.this.level."),multiple ="all") %>% # join traits with the genus of the traits database
-  select(c(5:ncol(.))) %>% # select the columns with only traits
-  na.omit() %>% # NA elimination
-  tibble::column_to_rownames("genus") # we attach genus as rownames
+  select(c(6:ncol(.))) %>% # select the columns with only traits
+  na.omit() #%>% # NA elimination
+  #tibble::column_to_rownames("genus") # we attach genus as rownames
 
 #run analysis (takes a bit)
 cooccur.species_ccr <- cooccur(mat = t(traits_ind), type = "spp_site", thresh = T, spp_names = TRUE)
