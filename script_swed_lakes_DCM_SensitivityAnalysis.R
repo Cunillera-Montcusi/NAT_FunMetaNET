@@ -13,14 +13,74 @@ traits <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings
 traits[,11:ncol(traits)] <- ifelse(traits[,11:ncol(traits)]>=1,1,0)#all afiliations higher than 1 have a 1
 
 traits <- traits %>% group_by(Genus..if.description.at.this.level.) %>% 
-                     mutate_if(is.numeric, ~mean(.)) %>% 
-                     mutate_if(is.numeric, ~ifelse(.<0.5,0,1)) %>%
-                     summarise_if(is.numeric, mean, na.rm = TRUE)
+  mutate_if(is.numeric, ~mean(.)) %>% 
+  mutate_if(is.numeric, ~ifelse(.<0.5,0,1)) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE)
+
+traits[which(is.na(traits[,(which(is.na(sum_traits)==T)+1)])==T),(which(is.na(sum_traits)==T)+1)] <- 0
+
+
+par(mfrow=c(4,8))
+Tra_to_plot_ori <- as.numeric(apply(traits[,2:ncol(traits)],2,sum))
+plot(Tra_to_plot_ori,ylim = c(0,460),
+xlab = "Traits",ylab = "Species",main = "How many species have the same trait")
+abline(h = mean(Tra_to_plot_ori),col="red",lwd=3)
+abline(h = quantile(Tra_to_plot_ori,probs = 0.75),col="red")
+abline(h = quantile(Tra_to_plot_ori,probs = 0.25),col="red")
+
+Spp_to_plot_ori <- as.numeric(apply(traits[,2:ncol(traits)],1,sum))
+plot(Spp_to_plot_ori,ylim = c(0,118),
+xlab = "Species",ylab = "Traits",main = "How many traits has each species")
+abline(h = mean(Spp_to_plot_ori),col="red",lwd=3)
+abline(h = quantile(Spp_to_plot_ori,probs = 0.75),col="red")
+abline(h = quantile(Spp_to_plot_ori,probs = 0.25),col="red")
+
+
+# Generalist vs Specialist traits generator
+Special_Traits <- c(c(1,10,30,50,70,90,110),c(1,10,30,50,70,90,110))
+Homogen_Spp <- c(rep(30,(length(Special_Traits)/2)),rep(450,(length(Special_Traits)/2)))
+for (number in 1:length(Special_Traits)) {
+traits_to_modif <- traits
+Trait_packs <- sample(2:ncol(traits),118,replace = F)
+Spp_packs <- sample(1:nrow(traits),460,replace = F)
+
+Trait_Paks_seq <- seq(1,118,Special_Traits[number])
+Trait_pack_matrix <- matrix(nrow = (length(Trait_Paks_seq)-1),ncol = (Special_Traits[number]),data = NA)
+for (Trait_rows in 1:(length(Trait_Paks_seq)-1)) {
+Trait_pack_matrix[Trait_rows,] <- Trait_packs[(Trait_Paks_seq[Trait_rows]-1):(Trait_Paks_seq[Trait_rows+1]-1)][1:Special_Traits[number]]}
+
+
+Spp_Paks_seq <- seq(1,460,Homogen_Spp[number])
+Spp_pack_matrix <- matrix(nrow = (length(Spp_Paks_seq)-1),ncol = Homogen_Spp[number],data = NA)
+for (Spp_rows in 1:(length(Spp_Paks_seq)-1)) {
+Spp_pack_matrix[Spp_rows,] <- Spp_packs[(Spp_Paks_seq[Spp_rows]-1):(Spp_Paks_seq[Spp_rows+1]-1)][1:Homogen_Spp[number]]}
+
+if ((nrow(Trait_pack_matrix)-nrow(Spp_pack_matrix))>0) {leng_to_change <-nrow(Spp_pack_matrix)}else{
+  leng_to_change <-nrow(Trait_pack_matrix)}
+
+for (final_rows in 1:leng_to_change) {
+traits_to_modif[Spp_pack_matrix[final_rows,],Trait_pack_matrix[final_rows,]] <- 1
+}
+
+Tra_to_plot <- as.numeric(apply(traits_to_modif[,2:ncol(traits_to_modif)],2,sum))
+plot(Tra_to_plot,ylim = c(0,460),
+     xlab = "Traits",ylab = "Species",main = "How many species have the same trait")
+abline(h = mean(Tra_to_plot),col="red",lwd=3)
+abline(h = quantile(Tra_to_plot,probs = 0.75),col="red")
+abline(h = quantile(Tra_to_plot,probs = 0.25),col="red")
+
+Spp_to_plot <- as.numeric(apply(traits_to_modif[,2:ncol(traits_to_modif)],1,sum))
+plot(Spp_to_plot,ylim = c(0,118),
+     xlab = "Species",ylab = "Traits",main = "How many traits has each species")
+abline(h = mean(Spp_to_plot),col="red",lwd=3)
+abline(h = quantile(Spp_to_plot,probs = 0.75),col="red")
+abline(h = quantile(Spp_to_plot,probs = 0.25),col="red")
+
 
 
 # Load dataset from retromed
 macros_lakes_list <- readxl::read_excel("data/Lakes/macros_lakes_list.xlsx") %>%
-                     filter(inv.l>0) # There are some lakes with a 0 abundance for the taxons. Must be removed.
+  filter(inv.l>0) # There are some lakes with a 0 abundance for the taxons. Must be removed.
 
 # All years 
 years <- unique(macros_lakes_list$year)
@@ -28,18 +88,18 @@ years <- unique(macros_lakes_list$year)
 output <- data.frame()
 
 ### FIRST LOOP - Years
-for (ind_year in 1:length(years)) {
+for (ind_year in 1:1) {#:length(years)) {
 cat("We are at year", years[ind_year],"__________________________________________________","\n")
 # We create a "temporary" file filtered according to the year selected. 
 macros_lakes_list_temp <- macros_lakes_list %>% filter(year==years[ind_year])
 # All lakes of that year
 year_lakes <- unique(macros_lakes_list_temp$site)
-
+  
 ### SECOND LOOP - Number of randomly selected lakes
 for (rand_selection in seq(1,length(year_lakes),10)) {
 cat("We have seleted", rand_selection,"lakes","__________________________________________________","\n")
 ### THIRD LOOP - We will repeat the same thing  several times  
-for (iteration in 1:10) {
+for (iteration in 1:1) {
 cat("We are at iteration", iteration,"__________________________________________________","\n")
 # We randomly select lake names
 select_lakes <- sample(year_lakes, # The vector we want to select things from 
@@ -59,7 +119,7 @@ traits_ind <- db_indv.l %>%
   left_join(traits, by=c("genus"="Genus..if.description.at.this.level."),multiple ="all") %>% # join traits with the genus of the traits database
   select(c(6:ncol(.))) %>% # select the columns with only traits
   na.omit() #%>% # NA elimination
-  #tibble::column_to_rownames("genus") # we attach genus as rownames
+#tibble::column_to_rownames("genus") # we attach genus as rownames
 
 #run analysis (takes a bit)
 cooccur.species_ccr <- cooccur(mat = t(traits_ind), type = "spp_site", thresh = T, spp_names = TRUE)
@@ -90,13 +150,16 @@ sd_grStre <- sd(igraph::graph.strength(g))
 medi_grStre <- median(igraph::graph.strength(g))
 min_grStre <- min(igraph::graph.strength(g))
 max_grStre <- max(igraph::graph.strength(g))
-
+      
 ### Here we have calculated everything that we needed already, so now it is time to "close" the whole process
 ## we will first create a data.frame with all the information 
 
 temp_output <- data.frame("Year"=years[ind_year],
                           "n_sites"=rand_selection,
                           "iter"=iteration,
+                          "Number"=number,
+                          "Traits_up_0.75"=length(which(Tra_to_plot>quantile(Tra_to_plot_ori,0.75))),
+                          "Species_up_0.75"=length(which(Spp_to_plot>quantile(Spp_to_plot_ori,0.75))),
                           edge_dens_man,
                           edge_dens,
                           mean_grStre,
@@ -109,6 +172,11 @@ output <- bind_rows(output,temp_output)
 }# End of iteration
 }# End of rand_selection
 }# End of ind_year
+
+
+
+}# End of number
+
 
 output %>%
   pivot_longer(cols = 4:ncol(.)) %>% 
