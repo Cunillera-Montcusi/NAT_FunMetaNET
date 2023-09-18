@@ -106,6 +106,7 @@ temp_output <- data.frame("Year"=years[ind_year],
                           max_grStre)
 
 output <- bind_rows(output,temp_output)
+write.csv2(output, file="Result_NATs.csv")
 }# End of iteration
 }# End of rand_selection
 }# End of ind_year
