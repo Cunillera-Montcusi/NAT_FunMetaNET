@@ -115,7 +115,7 @@ macros_lakes_list_temp_temp <- macros_lakes_list_temp %>% filter(site%in%select_
 # We obtain the IDs of the loop and hte names of the lakes used to built the NATs
 out_Names <- c(years[ind_year],rand_selection,iteration,unique(macros_lakes_list_temp_temp$site))
 # We store this information in the matrix that we created
-LakesMergedLakes <- rbind(LakesMergedLakes,c(out_Names,rep(NA,(length(LakesMergedLakes)-length(out_Names)))))
+LakesMergedLakes <- rbind(LakesMergedLakes,c(out_Names,rep(NA,(ncol(LakesMergedLakes)-length(out_Names)))))
 }# End of iteration
 }# End of rand_selection
 }# End of ind_year
