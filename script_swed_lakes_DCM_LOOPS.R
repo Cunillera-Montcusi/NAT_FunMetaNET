@@ -29,7 +29,7 @@ output <- data.frame()
 
 # We create a matrix to store the names of the selected lakes for later carry the dbFD. 
 # We need to create a matrix in order to set the number of columns a priori (that will be the total lenght of possible habitat names)
-LakesMergedLakes <- matrix(ncol = length(unique(unique(macros_lakes_list$site)))+3, data = NA)
+LakesMergedLakes <- matrix(ncol = length(unique(macros_lakes_list$site))+3, data = NA)
 
 ### FIRST LOOP - Years
 for (ind_year in 1:length(years)) {
