@@ -6,6 +6,8 @@ library(ggnetwork) # plotting networks in a ggplot environment
 library(viridis) # colours for colour-sensitive persons 
 library(igraph) # classic and mostly used package for network calculation 
 
+source("function_to_NATs.R")
+
 # Traits database (canviar a filtrat per generes)
 traits <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
 
@@ -43,7 +45,7 @@ year_lakes <- unique(macros_lakes_list_temp$site)
 for (rand_selection in seq(1,length(year_lakes),10)) {
 cat("We have seleted", rand_selection,"lakes","__________________________________________________","\n")
 ### THIRD LOOP - We will repeat the same thing  several times  
-for (iteration in 1:10) {
+for (iteration in 1:3) {
 cat("We are at iteration", iteration,"__________________________________________________","\n")
 # We randomly select lake names
 select_lakes <- sample(year_lakes, # The vector we want to select things from 
@@ -64,53 +66,39 @@ traits_ind <- db_indv.l %>%
               select(c(6:ncol(.))) %>% # select the columns with only traits
               na.omit() #%>% # NA elimination
               #tibble::column_to_rownames("genus") # we attach genus as rownames
- 
-# #run analysis (takes a bit)
-# cooccur.species_ccr <- cooccur(mat = t(traits_ind), type = "spp_site", thresh = T, spp_names = TRUE)
-# 
-# # Generate an adjacency table from the coocurrence matrix 
-# ## Create a blank table with only 0 
-# adj_table <- matrix(nrow =cooccur.species_ccr$species,ncol = cooccur.species_ccr$species,data = 0)
-# for (row_ID in 1:length(unique(cooccur.species_ccr$results$sp1))) {# do the following for each spp
-#   # Summarise the strenght of the link for each genus by calulating the mean probability
-#   link_weight <- cooccur.species_ccr$results %>% group_by(sp1,sp2) %>% summarise(mean_prob=mean(prob_cooccur),.groups = "drop")
-#   # filter the results from the coocurrence table for a species. You isolate all the species with who the 
-#   ## targeted species is coocuring
-#   spp_to <- cooccur.species_ccr$results %>%filter(sp1==unique(cooccur.species_ccr$results$sp1)[row_ID])
-#   # You add the values into the "adj.table" that was empty and now is being filled
-#   adj_table[unique(spp_to$sp1),spp_to$sp2] <- spp_to$prob_cooccur
-# }
-# # We transpose the results to make the matrix symetrical (same from & to links)
-# adj_table[lower.tri(adj_table)] <- t(adj_table)[lower.tri(adj_table)]
-# 
-# # We built a graph from the adjacency table
-# g <- igraph::graph.adjacency(adj_table,mode="undirected",weighted = TRUE)
-# 
-# #variables
-# edge_dens_man <- length(igraph::E(g))/(((ncol(traits_ind)*(ncol(traits_ind)-1)))/2)
-# edge_dens <- igraph::edge_density(g)
-# mean_grStre <- mean(igraph::graph.strength(g))
-# sd_grStre <- sd(igraph::graph.strength(g))
-# medi_grStre <- median(igraph::graph.strength(g))
-# min_grStre <- min(igraph::graph.strength(g))
-# max_grStre <- max(igraph::graph.strength(g))
-# 
-### Here we have calculated everything that we needed already, so now it is time to "close" the whole process
-## we will first create a data.frame with all the information 
 
-# temp_output <- data.frame("Year"=years[ind_year],
-#                          "n_sites"=rand_selection,
-#                          "iter"=iteration,
-#                          edge_dens_man,
-#                          edge_dens,
-#                          mean_grStre,
-#                          sd_grStre,
-#                          medi_grStre,
-#                          min_grStre, 
-#                          max_grStre)
-#
-#output <- bind_rows(output,temp_output)
-#write.csv2(output, file="Result_NATs.csv")
+# We have our database! We can calculate the network! 
+NATs_Output <- fun_to_NATs(Spp_x_Traits_Matrix =traits_ind )
+
+# We have two outputs of the function: 
+## The table that is the "newtork" in matricial format NATs_Output$Adj_Table
+## The graph object ready to be used with the "igraph" package NATs_Output$Graph 
+
+# We now calculate different metrics that can be used to characterize the compelxity of the network 
+## Check the definition on the help for the igraph package. Overall we are looking at how much relevance 
+## the nodes or the whole network are/is having. 
+edge_dens <- igraph::edge_density(NATs_Output$Graph)
+mean_grStre <- mean(igraph::graph.strength(NATs_Output$Graph))
+sd_grStre <- sd(igraph::graph.strength(NATs_Output$Graph))
+medi_grStre <- median(igraph::graph.strength(NATs_Output$Graph))
+min_grStre <- min(igraph::graph.strength(NATs_Output$Graph))
+max_grStre <- max(igraph::graph.strength(NATs_Output$Graph))
+
+## Here we have calculated everything that we needed already, so now it is time to "close" the whole process
+# we will first create a data.frame with all the information 
+
+temp_output <- data.frame("Year"=years[ind_year],
+                          "n_sites"=rand_selection,
+                          "iter"=iteration,
+                          edge_dens,
+                          mean_grStre,
+                          sd_grStre,
+                          medi_grStre,
+                          min_grStre, 
+                          max_grStre)
+
+output <- bind_rows(output,temp_output)
+write.csv2(output, file="Result_NATs.csv")
 
 # We obtain the IDs of the loop and hte names of the lakes used to built the NATs
 out_Names <- c(years[ind_year],rand_selection,iteration,unique(macros_lakes_list_temp_temp$site))
@@ -121,7 +109,7 @@ LakesMergedLakes <- rbind(LakesMergedLakes,c(out_Names,rep(NA,(ncol(LakesMergedL
 }# End of ind_year
 
 # We polish and arrange the matrix in order to have a "nice" matrix.  
-LakesMergedLakes <- LakesMergedLakes[-1,]
+LakesMergedLakes <- LakesMergedLakes
 colnames(LakesMergedLakes) <-c("Year","n_sites","it",rep("Lake_Name",(ncol(LakesMergedLakes)-3))) 
 
 output %>%
