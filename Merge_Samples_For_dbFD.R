@@ -1,7 +1,5 @@
 
 
-
-
 # This small script is just to put here the function to transform each one of the selected communities during the NATs 
 # and prepare the "mega-communities" for the dbFD so basically we will be summing and adding all the communities that 
 # we used in the NATS into a "big" sample table.
