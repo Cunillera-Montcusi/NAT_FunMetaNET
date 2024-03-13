@@ -15,7 +15,7 @@ nrow(LakesMergedLakes)
 
 # We charge the dataset and we eliminate the Lake and Year columns to make it more real to what we will have ;) 
 sp_sites <- read.csv2("data/DataAnnaTest/fuzzy_traits.csv",dec = ".") %>% mutate(Year=as.character(Year)) %>% mutate_if(is.numeric,~ifelse(.>0,1,0)) %>% mutate(Year=as.numeric(Year))
-
+load("dis_traits_lakes.RData")
 # What do we want now? We want to select the ponds that are listed in each row of our table no? So we need to make a "loop"
 # where for each row we will select the listed lakes, filter them from the sp_sites and sum their abundance values
 
@@ -31,19 +31,45 @@ sp_sites_Combin <- sp_sites %>% filter(Year==as.numeric(LakesMergedLakes[combi,1
 
 # So, we have generated a dataframe that contains, all the samples (rows) from a year and a combination of ponds. Now we just need to 
 # sum by columns and transform the result into 1/0. Finally, bind it to the output dataframe and DONE! :D
-Combis_Communities <- bind_rows(Combis_Communities,c(LakesMergedLakes[combi,1:3],ifelse(apply(sp_sites_Combin,2,sum)>0,1,0)))
+
+LakesMergedLakes_id<-LakesMergedLakes[combi,1:3]
+LakesMergedLakes_comb<-ifelse(apply(sp_sites_Combin,2,sum)>0,1,0) #%>% mutate_if(is.character, as.numeric)
+LakesMerged<-c(LakesMergedLakes_id,LakesMergedLakes_comb)
+LakesMerged[4:length(LakesMerged)]<-as.numeric(LakesMerged[4:length(LakesMerged)])
+Combis_Communities <- bind_rows(Combis_Communities,LakesMerged)
 }
 
 # Each one of the rows corresponds a each one of the used combinations and can be identified with the Year, n_sites and iteration.
 # Therefore we can link it with the values of the NATs
 Combis_Communities
-
+summary(Combis_Communities)
 # In case of need we could also "merge" the three identifiers: 
-Combis_Communities %>% mutate(Combi_ID=paste(Year,n_sites,it, sep="_"),.before = Year) %>% select(-c(Year,n_sites,it))
+
+Combis_Communities<-Combis_Communities %>% mutate(Combi_ID=paste(Year,n_sites,it, sep="_"),.before = Year) %>% select(-c(Year,n_sites,it))
 
 # PISTA!: Sempre que combinis "noms" com has fet amb el lake_year assegurat d'unir-los amb un "_" o un ".", d'aquesta 
 # manera, en cas que volguessis separar-los seria fàcil perquè podries identificar per on "partir-los"
 # La funció strsplit() va molt bé per fer això però necessita un identificador per on separar ;)
+apply(Combis_Communities, 2,sum)
 
-
-
+Combis_Communities <- data.frame(Combis_Communities, row.names = 1)%>% mutate_if(is.character, as.numeric)#per posar el nom de les localitats 
+summary(Combis_Communities)
+resFD <- dbFD( 
+  dis_traits, 
+  Combis_Communities, #fem el LOG si treballem amb abun, si fem P/A no cal
+  corr = "cailliez",
+  w.abun=TRUE,
+  stand.FRic = TRUE, 
+  m=7) #m=número de dim
+important.indices <- cbind(resFD$nbsp, resFD$FRic, resFD$FEve, resFD$FDiv,
+                           resFD$FDis, resFD$RaoQ)
+colnames(important.indices) <- c("NumbSpecies", "FRic", "FEve", "FDiv", "FDis", "Rao")
+bind_cols(LakesMergedLakes[,1:3], important.indices)%>%
+  pivot_longer(cols = 4:ncol(.)) %>% 
+  group_by(Year,n_sites,name) %>% 
+  mutate(Mean_val=mean(value)) %>% 
+  ggplot()+ 
+  geom_jitter(aes(y=value, x=n_sites, colour=as.factor(Year)), width = 0.2)+
+  geom_line(aes(y=Mean_val, x=n_sites, colour=as.factor(Year)))+
+  facet_grid(name~.,scales = "free") + 
+  theme_classic()
