@@ -10,6 +10,7 @@ source("function_to_NATs.R")
 source("function_to_ENV_SIM.R")
 source("function_to_DIST_SIM.R")
 source("function_to_ENV_DISIM.R")
+source("function_to_DIST_DISIM.R")
 
 # Traits database (canviar a filtrat per generes)
 traits <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
@@ -18,26 +19,33 @@ traits <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings
 traits[,11:ncol(traits)] <- ifelse(traits[,11:ncol(traits)]>=3,1,0)#all afiliations higher than 1 have a 1
 
 traits <- traits %>% group_by(Genus..if.description.at.this.level.) %>% 
-                     mutate_if(is.numeric, ~mean(.)) %>% 
-                     mutate_if(is.numeric, ~ifelse(.<0.5,0,1)) %>%
-                     summarise_if(is.numeric, mean, na.rm = TRUE)
+  mutate_if(is.numeric, ~mean(.)) %>% 
+  mutate_if(is.numeric, ~ifelse(.<0.5,0,1)) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE)
 
 
 # Load dataset from retromed
 macros_lakes_list <- readxl::read_excel("data/Lakes/macros_lakes_list.xlsx") %>%
-                     filter(inv.l>0) # There are some lakes with a 0 abundance for the taxons. Must be removed.
+  filter(inv.l>0) # There are some lakes with a 0 abundance for the taxons. Must be removed.
 
 # All years 
 years <- unique(macros_lakes_list$year)
-years <- years[c(1,2)]
+All_Types_of_NATs <- c("Random","Environment","Dis_Environment","Distance","Dis_Distance")
+AllNAT_output <- data.frame()
+AllNAT_LakesMergedLakes <- list()
+
+### NEW FIRST LOOP - Types of addition
+for (TypNAT in 1:length(All_Types_of_NATs)){
+  
+Type_of_NATs <- All_Types_of_NATs[[TypNAT]]
+  
 # We create the data.frame where we will store everything during the loops
 output <- data.frame()
-
+  
 # We create a matrix to store the names of the selected lakes for later carry the dbFD. 
 # We need to create a matrix in order to set the number of columns a priori (that will be the total lenght of possible habitat names)
 LakesMergedLakes <- matrix(ncol = length(unique(macros_lakes_list$site))+3, data = NA)
-
-Type_of_NATs <- "Environment"
+  
 ### FIRST LOOP - Years
 for (ind_year in 1:length(years)) {
 cat("We are at year", years[ind_year],"__________________________________________________","\n")
@@ -45,19 +53,18 @@ cat("We are at year", years[ind_year],"_________________________________________
 macros_lakes_list_temp <- macros_lakes_list %>% filter(year==years[ind_year])
 # All lakes of that year
 year_lakes <- unique(macros_lakes_list_temp$site)
-
-
-### THIRD LOOP - We will repeat the same thing  several times  
-for (iteration in 1:10) {
+    
+### SECOND LOOP - We will repeat the same thing for different ponds  
+for (iteration in 1:2) {
 cat("We are at iteration", iteration,"__________________________________________________","\n")
-
+      
 # We randomly select lake names
 if(Type_of_NATs=="Random"){
 select_lakes <- sample(year_lakes, # The vector we want to select things from 
                        size =length(year_lakes), # The number of elements that we want to select
                        replace = F) # If we can repeat or not  
 }
-
+      
 # We select lake names by similar environments
 if(Type_of_NATs=="Environment"){
 year_to_start <- sample(year_lakes,1)
@@ -70,23 +77,26 @@ select_lakes <- fun_to_ENV_DISIM(ref_year = years[ind_year],orig_lake = year_to_
 }
 # We select lake names by similar distance
 if(Type_of_NATs=="Distance"){
-  year_to_start <- sample(year_lakes,1)
-  select_lakes <- fun_to_DIST_SIM(orig_lake = year_to_start)
+year_to_start <- sample(year_lakes,1)
+select_lakes <- fun_to_DIST_SIM(orig_lake = year_to_start)
 }
-
-### SECOND LOOP - Number of randomly selected lakes
-for (selected_lakes in c(1,5,11,21,51)){#seq(1,length(year_lakes),10)) {
+      
+# We select lake names by different distance
+if(Type_of_NATs=="Dis_Distance"){
+year_to_start <- sample(year_lakes,1)
+select_lakes <- fun_to_DIST_DISIM(orig_lake = year_to_start)
+}
+    
+### Third LOOP - Number of randomly selected lakes
+for (selected_lakes in c(1,2,3,4,5,6,7,8,9,10,11,21,51)){#seq(1,length(year_lakes),10)) {
 cat("We have seleted", selected_lakes,"lakes","__________________________________________________","\n")  
-
+        
 real_select_lakes <- select_lakes[1:selected_lakes]
-
-
+        
 macros_lakes_list_temp_temp <- macros_lakes_list_temp %>% filter(site%in%real_select_lakes)
-
-
 # Check presence
 db_indv.l <- macros_lakes_list_temp_temp %>% filter(genus%in%traits$Genus..if.description.at.this.level.) # Filter Lakes genus from trait database 
- 
+        
 traits_ind <- db_indv.l %>% 
               ungroup() %>% # just in case 
               #group_by(genus) %>% # we group by genus 
@@ -95,14 +105,14 @@ traits_ind <- db_indv.l %>%
               select(c(6:ncol(.))) %>% # select the columns with only traits
               na.omit() #%>% # NA elimination
               #tibble::column_to_rownames("genus") # we attach genus as rownames
-
+        
 # We have our database! We can calculate the network! 
 NATs_Output <- fun_to_NATs(Spp_x_Traits_Matrix =traits_ind )
-
+      
 # We have two outputs of the function: 
 ## The table that is the "newtork" in matricial format NATs_Output$Adj_Table
 ## The graph object ready to be used with the "igraph" package NATs_Output$Graph 
-
+        
 # We now calculate different metrics that can be used to characterize the compelxity of the network 
 ## Check the definition on the help for the igraph package. Overall we are looking at how much relevance 
 ## the nodes or the whole network are/is having. 
@@ -116,11 +126,12 @@ transit_W <- mean(igraph::transitivity(NATs_Output$Graph, type = "barrat"),na.rm
 transit <- igraph::transitivity(NATs_Output$Graph, type = "global")
 modA <- bipartite::computeModules(NATs_Output$Adj_Table)
 module <- length(bipartite::listModuleInformation(modA))
-
+        
 ## Here we have calculated everything that we needed already, so now it is time to "close" the whole process
 # we will first create a data.frame with all the information 
-
-temp_output <- data.frame("Year"=years[ind_year],
+        
+temp_output <- data.frame("Type_NATS"=Type_of_NATs,
+                          "Year"=years[ind_year],
                           "n_sites"=selected_lakes,
                           "iter"=iteration,
                           edge_dens,
@@ -132,21 +143,25 @@ temp_output <- data.frame("Year"=years[ind_year],
                           transit_W,
                           transit,
                           module)
-
+        
 output <- bind_rows(output,temp_output)
 write.csv2(output, file="Result_NATs.csv")
-
+      
 # We obtain the IDs of the loop and hte names of the lakes used to built the NATs
 out_Names <- c(years[ind_year],selected_lakes,iteration,unique(macros_lakes_list_temp_temp$site))
 # We store this information in the matrix that we created
 LakesMergedLakes <- rbind(LakesMergedLakes,c(out_Names,rep(NA,(ncol(LakesMergedLakes)-length(out_Names)))))
 }# End of iteration
-}# End of selected_lakes
 }# End of ind_year
-
+}# End of selected_lakes
 # We polish and arrange the matrix in order to have a "nice" matrix.  
 LakesMergedLakes <- LakesMergedLakes[-1,]
 colnames(LakesMergedLakes) <-c("Year","n_sites","it",rep("Lake_Name",(ncol(LakesMergedLakes)-3))) 
+
+AllNAT_output <- bind_rows(AllNAT_output,output)
+AllNAT_LakesMergedLakes[[TypNAT]] <- LakesMergedLakes
+}# End of Types of NATs
+
 
 save(output,file = "Env_SIM_NATs.RData")
 
@@ -174,9 +189,9 @@ load("Rand_new_NATs.RData")
 output_Rand <- output
 
 full_output <- bind_rows(
-output_dis_env_sim %>% mutate(TypeNAT="Env_Dis"),
-output_env_sim %>% mutate(TypeNAT="Env_Sim"),
-output_Rand%>% mutate(TypeNAT="Rand"))
+  output_dis_env_sim %>% mutate(TypeNAT="Env_Dis"),
+  output_env_sim %>% mutate(TypeNAT="Env_Sim"),
+  output_Rand%>% mutate(TypeNAT="Rand"))
 
 
 full_output %>%
