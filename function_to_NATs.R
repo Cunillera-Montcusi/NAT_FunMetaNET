@@ -10,7 +10,7 @@ cooccur.species_ccr <- cooccur(mat = t(Spp_x_Traits_Matrix),
 adj_table <- matrix(nrow =cooccur.species_ccr$species,ncol = cooccur.species_ccr$species,data = 0)
 
 for (row_ID in 1:length(unique(cooccur.species_ccr$results$sp1))) {# do the following for each spp
-cat("We are at trait interaction", row_ID, "of", length(unique(cooccur.species_ccr$results$sp1)), "\n")
+#cat("We are at trait interaction", row_ID, "of", length(unique(cooccur.species_ccr$results$sp1)), "\n")
   # Summarise the strenght of the link for each genus by calulating the mean probability
   link_weight <- cooccur.species_ccr$results %>% 
                  group_by(sp1) %>% 

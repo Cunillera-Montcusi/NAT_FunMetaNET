@@ -8,13 +8,14 @@ library(igraph) # classic and mostly used package for network calculation
 
 source("function_to_NATs.R")
 source("function_to_ENV_SIM.R")
-
+source("function_to_DIST_SIM.R")
+source("function_to_ENV_DISIM.R")
 
 # Traits database (canviar a filtrat per generes)
 traits <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
 
 # Transform traits to 1 or 0 (losing affiliations)
-traits[,11:ncol(traits)] <- ifelse(traits[,11:ncol(traits)]>=1,1,0)#all afiliations higher than 1 have a 1
+traits[,11:ncol(traits)] <- ifelse(traits[,11:ncol(traits)]>=3,1,0)#all afiliations higher than 1 have a 1
 
 traits <- traits %>% group_by(Genus..if.description.at.this.level.) %>% 
                      mutate_if(is.numeric, ~mean(.)) %>% 
@@ -28,6 +29,7 @@ macros_lakes_list <- readxl::read_excel("data/Lakes/macros_lakes_list.xlsx") %>%
 
 # All years 
 years <- unique(macros_lakes_list$year)
+years <- years[c(1,2)]
 # We create the data.frame where we will store everything during the loops
 output <- data.frame()
 
@@ -44,17 +46,15 @@ macros_lakes_list_temp <- macros_lakes_list %>% filter(year==years[ind_year])
 # All lakes of that year
 year_lakes <- unique(macros_lakes_list_temp$site)
 
-### SECOND LOOP - Number of randomly selected lakes
-for (selected_lakes in c(1,2,3,4,5,7,9,11,21,31,51)){#seq(1,length(year_lakes),10)) {
-cat("We have seleted", selected_lakes,"lakes","__________________________________________________","\n")
+
 ### THIRD LOOP - We will repeat the same thing  several times  
-for (iteration in 1:3) {
+for (iteration in 1:10) {
 cat("We are at iteration", iteration,"__________________________________________________","\n")
 
 # We randomly select lake names
 if(Type_of_NATs=="Random"){
 select_lakes <- sample(year_lakes, # The vector we want to select things from 
-                       size =selected_lakes, # The number of elements that we want to select
+                       size =length(year_lakes), # The number of elements that we want to select
                        replace = F) # If we can repeat or not  
 }
 
@@ -62,12 +62,26 @@ select_lakes <- sample(year_lakes, # The vector we want to select things from
 if(Type_of_NATs=="Environment"){
 year_to_start <- sample(year_lakes,1)
 select_lakes <- fun_to_ENV_SIM(ref_year = years[ind_year],orig_lake = year_to_start)
-select_lakes <- select_lakes[1:selected_lakes]
+}
+# We select lake names by DISsimilar environments
+if(Type_of_NATs=="Dis_Environment"){
+year_to_start <- sample(year_lakes,1)
+select_lakes <- fun_to_ENV_DISIM(ref_year = years[ind_year],orig_lake = year_to_start)
+}
+# We select lake names by similar distance
+if(Type_of_NATs=="Distance"){
+  year_to_start <- sample(year_lakes,1)
+  select_lakes <- fun_to_DIST_SIM(orig_lake = year_to_start)
 }
 
+### SECOND LOOP - Number of randomly selected lakes
+for (selected_lakes in c(1,5,11,21,51)){#seq(1,length(year_lakes),10)) {
+cat("We have seleted", selected_lakes,"lakes","__________________________________________________","\n")  
+
+real_select_lakes <- select_lakes[1:selected_lakes]
 
 
-macros_lakes_list_temp_temp <- macros_lakes_list_temp %>% filter(site%in%select_lakes)
+macros_lakes_list_temp_temp <- macros_lakes_list_temp %>% filter(site%in%real_select_lakes)
 
 
 # Check presence
@@ -98,6 +112,10 @@ sd_grStre <- sd(igraph::graph.strength(NATs_Output$Graph))
 medi_grStre <- median(igraph::graph.strength(NATs_Output$Graph))
 min_grStre <- min(igraph::graph.strength(NATs_Output$Graph))
 max_grStre <- max(igraph::graph.strength(NATs_Output$Graph))
+transit_W <- mean(igraph::transitivity(NATs_Output$Graph, type = "barrat"),na.rm=TRUE)
+transit <- igraph::transitivity(NATs_Output$Graph, type = "global")
+modA <- bipartite::computeModules(NATs_Output$Adj_Table)
+module <- length(bipartite::listModuleInformation(modA))
 
 ## Here we have calculated everything that we needed already, so now it is time to "close" the whole process
 # we will first create a data.frame with all the information 
@@ -110,7 +128,10 @@ temp_output <- data.frame("Year"=years[ind_year],
                           sd_grStre,
                           medi_grStre,
                           min_grStre, 
-                          max_grStre)
+                          max_grStre,
+                          transit_W,
+                          transit,
+                          module)
 
 output <- bind_rows(output,temp_output)
 write.csv2(output, file="Result_NATs.csv")
@@ -140,17 +161,29 @@ output %>%
   theme_classic()
 
 output %>%
-  group_by(Year,n_sites) %>% 
-  mutate(Mean_val=mean(edge_dens)) %>% 
-  ggplot()+ 
-  geom_jitter(aes(y=edge_dens, x=n_sites, colour=as.factor(Year)), width = 0.2)+
-  geom_line(aes(y=Mean_val, x=n_sites, colour=as.factor(Year)))+
-  scale_y_continuous(limits=c(0,1))+
+  #group_by(Year,n_sites) %>% 
+  #mutate(Mean_val=mean(edge_dens)) %>% 
+  ggplot(aes(y=edge_dens , x=n_sites, colour=as.factor(iter)))+ 
+  geom_jitter(width = 0.2)+
+  geom_smooth(aes(linetype=as.factor(Year)),method="loess",se=F)+ 
   theme_classic()
 
-load("Env_SIM_NATs.RData")
-output_ENV <- output
+
+save(output,file = "Env_dis_new_NATs.RData")
+load("Rand_new_NATs.RData")
+output_Rand <- output
+
+full_output <- bind_rows(
+output_dis_env_sim %>% mutate(TypeNAT="Env_Dis"),
+output_env_sim %>% mutate(TypeNAT="Env_Sim"),
+output_Rand%>% mutate(TypeNAT="Rand"))
 
 
+full_output %>%
+  ggplot()+ 
+  geom_jitter(aes(y=sd_grStre , x=n_sites, colour=as.factor(Year)), width = 0.2)+
+  geom_smooth(aes(y=sd_grStre , x=n_sites, colour=as.factor(Year),
+                  linetype=as.factor(TypeNAT)),method="loess",se=F)+
+  theme_classic()
 
 
