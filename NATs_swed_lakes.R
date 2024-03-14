@@ -7,6 +7,8 @@ library(viridis) # colours for colour-sensitive persons
 library(igraph) # classic and mostly used package for network calculation 
 
 source("function_to_NATs.R")
+source("function_to_ENV_SIM.R")
+
 
 # Traits database (canviar a filtrat per generes)
 traits <-read.csv("data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
@@ -33,6 +35,7 @@ output <- data.frame()
 # We need to create a matrix in order to set the number of columns a priori (that will be the total lenght of possible habitat names)
 LakesMergedLakes <- matrix(ncol = length(unique(macros_lakes_list$site))+3, data = NA)
 
+Type_of_NATs <- "Environment"
 ### FIRST LOOP - Years
 for (ind_year in 1:length(years)) {
 cat("We are at year", years[ind_year],"__________________________________________________","\n")
@@ -42,15 +45,27 @@ macros_lakes_list_temp <- macros_lakes_list %>% filter(year==years[ind_year])
 year_lakes <- unique(macros_lakes_list_temp$site)
 
 ### SECOND LOOP - Number of randomly selected lakes
-for (rand_selection in seq(1,length(year_lakes),10)) {
-cat("We have seleted", rand_selection,"lakes","__________________________________________________","\n")
+for (selected_lakes in c(1,2,3,4,5,7,9,11,21,31,51)){#seq(1,length(year_lakes),10)) {
+cat("We have seleted", selected_lakes,"lakes","__________________________________________________","\n")
 ### THIRD LOOP - We will repeat the same thing  several times  
 for (iteration in 1:3) {
 cat("We are at iteration", iteration,"__________________________________________________","\n")
+
 # We randomly select lake names
+if(Type_of_NATs=="Random"){
 select_lakes <- sample(year_lakes, # The vector we want to select things from 
-                       size =rand_selection, # The number of elements that we want to select
-                       replace = F) # If we can repeat or not
+                       size =selected_lakes, # The number of elements that we want to select
+                       replace = F) # If we can repeat or not  
+}
+
+# We select lake names by similar environments
+if(Type_of_NATs=="Environment"){
+year_to_start <- sample(year_lakes,1)
+select_lakes <- fun_to_ENV_SIM(ref_year = years[ind_year],orig_lake = year_to_start)
+select_lakes <- select_lakes[1:selected_lakes]
+}
+
+
 
 macros_lakes_list_temp_temp <- macros_lakes_list_temp %>% filter(site%in%select_lakes)
 
@@ -88,7 +103,7 @@ max_grStre <- max(igraph::graph.strength(NATs_Output$Graph))
 # we will first create a data.frame with all the information 
 
 temp_output <- data.frame("Year"=years[ind_year],
-                          "n_sites"=rand_selection,
+                          "n_sites"=selected_lakes,
                           "iter"=iteration,
                           edge_dens,
                           mean_grStre,
@@ -101,16 +116,18 @@ output <- bind_rows(output,temp_output)
 write.csv2(output, file="Result_NATs.csv")
 
 # We obtain the IDs of the loop and hte names of the lakes used to built the NATs
-out_Names <- c(years[ind_year],rand_selection,iteration,unique(macros_lakes_list_temp_temp$site))
+out_Names <- c(years[ind_year],selected_lakes,iteration,unique(macros_lakes_list_temp_temp$site))
 # We store this information in the matrix that we created
 LakesMergedLakes <- rbind(LakesMergedLakes,c(out_Names,rep(NA,(ncol(LakesMergedLakes)-length(out_Names)))))
 }# End of iteration
-}# End of rand_selection
+}# End of selected_lakes
 }# End of ind_year
 
 # We polish and arrange the matrix in order to have a "nice" matrix.  
-LakesMergedLakes <- LakesMergedLakes
+LakesMergedLakes <- LakesMergedLakes[-1,]
 colnames(LakesMergedLakes) <-c("Year","n_sites","it",rep("Lake_Name",(ncol(LakesMergedLakes)-3))) 
+
+save(output,file = "Env_SIM_NATs.RData")
 
 output %>%
   pivot_longer(cols = 4:ncol(.)) %>% 
@@ -122,7 +139,17 @@ output %>%
   facet_grid(name~.,scales = "free") + 
   theme_classic()
 
+output %>%
+  group_by(Year,n_sites) %>% 
+  mutate(Mean_val=mean(edge_dens)) %>% 
+  ggplot()+ 
+  geom_jitter(aes(y=edge_dens, x=n_sites, colour=as.factor(Year)), width = 0.2)+
+  geom_line(aes(y=Mean_val, x=n_sites, colour=as.factor(Year)))+
+  scale_y_continuous(limits=c(0,1))+
+  theme_classic()
 
+load("Env_SIM_NATs.RData")
+output_ENV <- output
 
 
 
