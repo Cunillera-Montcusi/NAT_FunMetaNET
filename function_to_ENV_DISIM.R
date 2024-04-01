@@ -63,11 +63,11 @@ fun_to_ENV_DISIM_riv <- function(ref_year,orig_lake ){
     dist_lakes <- dist(xy,method = "euclidean")
     
     # Segon
-    pos_lake <- which(lake_year$Lake==orig_lake) # Posició del Orig lake
+    pos_lake <- which(lake_year$site==orig_lake) # Posició del Orig lake
     A <- as.matrix(dist_lakes)[,pos_lake]# Aillem la columna que correspon al llac Original
     B <-A[-pos_lake] #Eliminem el zero que està al mateix lloc que el llac original
     Dist_Neigh_lake <- max(B) # Trobem la distànica minima entre Original i altres
-    C <- (which(A==Dist_Neigh_lake)) # Localitzem la posició del mínim
+    C <- (which(A==Dist_Neigh_lake)) # Localitzem la posició del maxim
     Closer_Lake <- lake_year$site[C] # Nom del llac més proper a l'original
     
     # Tercer 
