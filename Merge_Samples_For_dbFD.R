@@ -12,7 +12,7 @@ library(FD)
 
 # Each row of the LakesMergedLakes correspond to one of these combinations  
 
-LakesMergedLakes <- LakesMergedLakes[-1,]
+#LakesMergedLakes <- LakesMergedLakes[-1,]
 # We charge the dataset and we eliminate the Lake and Year columns to make it more real to what we will have ;) 
 sp_sites <- read.csv2("data/DataAnnaTest/fuzzy_traits.csv",dec = ".") %>% mutate(Year=as.character(Year)) %>% mutate_if(is.numeric,~ifelse(.>0,1,0)) %>% mutate(Year=as.numeric(Year))
 load("data/DataAnnaTest/dis_traits_lakes.RData")
@@ -97,9 +97,9 @@ strsplit(df, split = "_")
 
 # Each row of the LakesMergedLakes correspond to one of these combinations  
 
-LakesMergedLakes <- LakesMergedLakes[-1,]
+#LakesMergedLakes <- LakesMergedLakes[-1,]
 # We charge the dataset and we eliminate the Lake and Year columns to make it more real to what we will have ;) 
-sp_sites <- read.csv2("data/DataAnnaTest/sp_rivers.csv",dec = ",") %>% mutate(Year=as.character(Year)) %>% mutate_if(is.numeric,~ifelse(.>0,1,0)) %>% mutate(Year=as.numeric(Year))
+sp_sites <- readxl::read_xlsx("data/DataAnnaTest/sp_rivers.xlsx") %>% mutate(Year=as.character(Year)) %>% mutate_if(is.numeric,~ifelse(.>0,1,0)) %>% mutate(Year=as.numeric(Year))
 load("data/DataAnnaTest/dis_traits_river.RData")
 # What do we want now? We want to select the ponds that are listed in each row of our table no? So we need to make a "loop"
 # where for each row we will select the listed lakes, filter them from the sp_sites and sum their abundance values
@@ -154,10 +154,10 @@ important.indices <- cbind(resFD$nbsp, resFD$FRic, resFD$FEve, resFD$FDiv,
                            resFD$FDis, resFD$RaoQ)
 colnames(important.indices) <- c("NumbSpecies", "FRic", "FEve", "FDiv", "FDis", "Rao")
 bind_cols(LakesMergedLakes[,1:3], important.indices)%>%
-  pivot_longer(cols = 4:ncol(.)) %>% 
+  pivot_longer(cols = 4:8) %>% 
   group_by(Year,n_sites,name) %>% 
   mutate(Mean_val=mean(value)) %>%
-  #filter(name=="FEve")%>% 
+  filter(Year==c("2008", "2010", "2017"))%>% 
   ggplot()+ 
   geom_jitter(aes(y=value, x=as.numeric(n_sites),colour=as.factor(Year)), width = 0.2)+
   geom_smooth(aes(y=value, x=as.numeric(n_sites), colour=as.factor(Year)), method="loess",se=F)+
@@ -165,6 +165,19 @@ bind_cols(LakesMergedLakes[,1:3], important.indices)%>%
   facet_grid(name~.,scales = "free") + 
   theme_classic()
 important.indices <- rownames_to_column(as.data.frame( important.indices), "Names")
-writexl::write_xlsx(as.data.frame(important.indices),path = "res_FD_PA_env.xlsx")
 
-strsplit(df, split = "_")
+writexl::write_xlsx(as.data.frame(important.indices),path = "res_FD_abun_env.xlsx")
+data <- readxl::read_excel("res_FD_abun_env.xlsx")
+data2 <- separate(data, Names, into = c("Year", "n_sites", "iter"), sep = "_")
+
+data2 %>%
+  pivot_longer(cols = 4:8) %>% 
+  group_by(Year,n_sites,name) %>% 
+  mutate(Mean_val=mean(value)) %>%
+  filter(Year==c("1995", "2000", "2010"))%>% 
+  ggplot()+ 
+  geom_jitter(aes(y=value, x=as.numeric(n_sites),colour=as.factor(Year)), width = 0.2)+
+  geom_smooth(aes(y=value, x=as.numeric(n_sites), colour=as.factor(Year)), method="loess",se=F)+
+  #geom_line(aes(y=Mean_val, x=as.numeric(n_sites), colour=as.factor(Year)))+
+  facet_grid(name~.,scales = "free") + 
+  theme_classic()
