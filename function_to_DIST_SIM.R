@@ -62,6 +62,45 @@ fun_to_DIST_SIM <- function(orig_lake ){
   Llista_llacs  
 }# End function
 
+#Rivers####
 
-
-
+fun_to_DIST_SIM_riv <- function(orig_lake ){
+  
+  lake_geo <- readxl::read_excel("data/Rivers/swed_rivers/coord_swed_riv.xlsx") 
+  #orig_lake <- sample(lake_geo$Lake, 1)#agafem un llac a l'atzar per començar
+  #loop: de mes semblant a mes diferent
+  Llista_llacs <- c() #obrim un vestor on guradar els llacs per ordre
+  Llista_llacs[1] <- orig_lake #posem el 1r llac al vector
+  lake_geo$River[which(lake_geo$River==orig_lake)] <- "Orig_Lake" #retorna el nom del llac triat
+  
+  for (coor in 2:nrow(lake_geo)) {
+    
+    orig_lake <- lake_geo %>% filter(River=="Orig_Lake") %>% pull(River)
+    
+    # Primer calculem distancia
+    xy <- lake_geo[,2:3]  
+    dist_lakes <- geosphere::distm(xy)
+    
+    # Segon
+    pos_lake <- which(lake_geo$River==orig_lake) # Posició del Orig lake
+    A <- as.matrix(dist_lakes)[,pos_lake]# Aillem la columna que correspon al llac Original
+    B <-A[-pos_lake] #Eliminem el zero que està al mateix lloc que el llac original
+    Dist_Neigh_lake <- min(B) # Trobem la distànica minima entre Original i altres
+    C <- (which(A==Dist_Neigh_lake)) # Localitzem la posició del mínim
+    Closer_Lake <- lake_geo$River[C] # Nom del llac més proper a l'original
+    
+    # Tercer 
+    d <- subset(lake_geo, River%in%c(orig_lake,Closer_Lake))#filtrem els dos llacs més propers
+    new_lake <- data.frame(River="Orig_Lake",
+                           summarise(d,Lon=mean(Longitude_X),
+                                     Lat=mean(Latitude_Y)),
+                           year=NA) #fem la mitjana dels dos llacs més propers
+    
+    # Quart 
+    lake_geo <- lake_geo %>% filter(!River%in%c(orig_lake,Closer_Lake)) %>% 
+      bind_rows(new_lake) #treiem de la llista els dos llacs dels quals hem fer mean, i afegim "new lake" (mean dels dos llacs)
+    
+    Llista_llacs[coor] <- Closer_Lake
+  }
+  Llista_llacs  
+}# End function
