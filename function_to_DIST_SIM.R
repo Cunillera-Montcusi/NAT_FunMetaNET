@@ -92,8 +92,8 @@ fun_to_DIST_SIM_riv <- function(orig_lake ){
     # Tercer 
     d <- subset(lake_geo, River%in%c(orig_lake,Closer_Lake))#filtrem els dos llacs més propers
     new_lake <- data.frame(River="Orig_Lake",
-                           summarise(d,Lon=mean(Longitude_X),
-                                     Lat=mean(Latitude_Y)),
+                           summarise(d,Longitude_X=mean(Longitude_X),
+                                     Latitude_Y=mean(Latitude_Y)),
                            year=NA) #fem la mitjana dels dos llacs més propers
     
     # Quart 
