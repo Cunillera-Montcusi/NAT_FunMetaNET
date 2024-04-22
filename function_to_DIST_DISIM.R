@@ -74,7 +74,7 @@ fun_to_DIST_DISIM_riv <- function(orig_lake ){
   
   for (coor in 2:nrow(lake_geo)) {
     
-    orig_lake <- lake_geo %>% filter(Lake=="Orig_Lake") %>% pull(River)
+    orig_lake <- lake_geo %>% filter(River=="Orig_Lake") %>% pull(River)
     
     # Primer calculem distancia
     xy <- lake_geo[,2:3]  
@@ -91,8 +91,8 @@ fun_to_DIST_DISIM_riv <- function(orig_lake ){
     # Tercer 
     d <- subset(lake_geo, River%in%c(orig_lake,Closer_Lake))#filtrem els dos llacs més propers
     new_lake <- data.frame(River="Orig_Lake",
-                           summarise(d,Lon=mean(Longitude_X),
-                                     Lat=mean(Latitude_X))) #fem la mitjana dels dos llacs més propers
+                           summarise(d,Longitude_X=mean(Longitude_X),
+                                     Latitude_Y=mean(Latitude_Y))) #fem la mitjana dels dos llacs més propers
     
     # Quart 
     lake_geo <- lake_geo %>% filter(!River%in%c(orig_lake,Closer_Lake)) %>% 
