@@ -10,7 +10,7 @@ source("function_to_NATs.R")
 source("function_to_ENV_SIM.R")
 source("function_to_ENV_DISIM.R")
 source("function_to_DIST_SIM.R")
-source("function_to_ENV_DISIM.R")
+source("function_to_DIST_DISIM.R")
 
 # Traits database (canviar a filtrat per generes)
 traits <-read.csv("data/tachet.traits.def_mod.csv", header=TRUE, sep=";", na.strings="")
