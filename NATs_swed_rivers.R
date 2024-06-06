@@ -14,11 +14,12 @@ source("function_to_DIST_DISIM.R")
 
 # Traits database (canviar a filtrat per generes)
 traits <-read.csv("data/tachet.traits.def_mod.csv", header=TRUE, sep=";", na.strings="")
-#traits <- traits[,c(1:10,57:73)] #feeding gr
-#traits <- traits[,c(1:17,49:56)]#size i loc
+traits <- traits[,c(1:10,57:73)] #feeding gr
+traits <- traits[,c(1:17,49:56)]#size i loc
 # Transform traits to 1 or 0 (losing affiliations)
 traits[,11:ncol(traits)] <- ifelse(traits[,11:ncol(traits)]>=3,1,0)#all afiliations higher than 1 have a 1
 
+summary(apply(traits[,11:ncol(traits)],1, sum))
 traits_gen <- traits %>% group_by(Genus..if.description.at.this.level.) %>% 
   mutate_if(is.numeric, ~mean(.)) %>% 
   mutate_if(is.numeric, ~ifelse(.<0.5,0,1)) %>%
@@ -35,10 +36,10 @@ macros_lakes_list <- readxl::read_excel("data/Rivers/swed_river_list_s_ph.xlsx")
 
 # All years 
 years <- unique(macros_lakes_list$year)
-#years <- years[c(2)]
+years <- years[c(11)]
 # We create the data.frame where we will store everything during the loops
 output <- data.frame()
-
+output_traits_str <-  data.frame()
 # We create a matrix to store the names of the selected lakes for later carry the dbFD. 
 # We need to create a matrix in order to set the number of columns a priori (that will be the total lenght of possible habitat names)
 LakesMergedLakes <- matrix(ncol = length(unique(macros_lakes_list$site))+4, data = NA)
@@ -55,7 +56,7 @@ for (ind_year in 1:length(years)) {
   
   #Iter_NATs_Netw <- list()
   ### THIRD LOOP - We will repeat the same thing  several times  
-  for (iteration in 1:20) {
+  for (iteration in 1:5) {
     cat("We are at iteration", iteration,"__________________________________________________","\n")
     
     # We randomly select lake names
@@ -86,8 +87,8 @@ for (ind_year in 1:length(years)) {
       select_lakes <- fun_to_DIST_DISIM_riv(orig_lake = year_to_start)
     }
     #Sel_lak_NATs_Netw <- list()
-    ### SECOND LOOP - Number of randomly selected lakes
-    for (selected_lakes in c(1,3,5,7,9,11,13,15,20,25,39)){#seq(1,length(year_lakes),10)) {
+    ### SECOND LOOP - Number of randomly selected lakes #c(1,3,5,7,9,11,13,15,20,25,39))
+    for (selected_lakes in c(1,3,5,7,11,15,20,39)){#seq(1,length(year_lakes),10)) {
       cat("We have seleted", selected_lakes,"lakes","__________________________________________________","\n")  
       
       real_select_lakes <- select_lakes[1:selected_lakes]
@@ -151,7 +152,7 @@ for (ind_year in 1:length(years)) {
       NODF_w <- as.numeric(bipartite::networklevel(NATs_Output$Adj_Table,index = "weighted NODF"))
       Connec_w <- as.numeric(bipartite::networklevel(NATs_Output$Adj_Table,index = "weighted connectance"))
       Mod.A <- length(bipartite::listModuleInformation(bipartite::computeModules(NATs_Output$Adj_Table)))
-      
+      gr_Stre <- igraph::graph.strength(NATs_Output$Graph)
       ## Here we have calculated everything that we needed already, so now it is time to "close" the whole process
       # we will first create a data.frame with all the information 
       
@@ -165,6 +166,12 @@ for (ind_year in 1:length(years)) {
                                 module,clust, nest_w, NODF_w, Connec_w, Mod.A)
       
       output <- bind_rows(output,temp_output)
+      temp_output_traits_str <- data.frame(#"Type_NATS"=Type_of_NATs,
+        "Year"=years[ind_year],
+        "n_sites"=selected_lakes,
+        "iter"=iteration,
+        gr_Stre, Tra=colnames(traits_ind)[3:ncol(traits_ind)])
+      output_traits_str <- bind_rows(output_traits_str,temp_output_traits_str)
       #write.csv2(output, file="Result_NATs.csv")
       
       # We obtain the IDs of the loop and the names of the lakes used to built the NATs
@@ -183,7 +190,8 @@ for (ind_year in 1:length(years)) {
 LakesMergedLakes <- LakesMergedLakes[-1,]
 colnames(LakesMergedLakes) <-c("Year","n_sites","it","richness",rep("Lake_Name",(ncol(LakesMergedLakes)-4))) 
 #NATs_Netw[[1]][[1]][[1]]$Adj_Table
-save(output,file = "NATs_riv_DisDits_def.RData")
+save(output_traits_str,file = "NATs_riv_DisDist_CanvisFeedingTR17.RData")
+save(output,file = "NATs_riv_Rand_CanvisLocomTR.RData")
 save(LakesMergedLakes,file = "riv_for_FD_DisDist_def.RData")
 out_env <- output
 

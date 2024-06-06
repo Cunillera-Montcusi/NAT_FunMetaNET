@@ -177,7 +177,7 @@ output %>%
   pivot_longer(cols = 3:ncol(.)) %>% 
   #filter(Site%in%c("Allgjuttern","Alsjön")) %>%
   group_by(Site,n_years,name) %>% 
-  mutate(Mean_val=mean(value)) %>% filter(name=="edge_dens")%>%
+  mutate(Mean_val=mean(value)) %>% filter(name=="mean_grStre")%>%
   ggplot()+ 
   geom_point(aes(y=value, x=n_years, colour=as.factor(Site)))+
   geom_line(aes(y=Mean_val, x=n_years, colour=as.factor(Site)))+

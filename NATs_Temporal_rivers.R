@@ -190,13 +190,16 @@ output %>%
   pivot_longer(cols = 3:ncol(.)) %>% 
   #filter(Site%in%c("Allgjuttern","Alsjön")) %>%
   group_by(Site,n_years,name) %>% 
-  mutate(Mean_val=mean(value)) %>%filter(name=="edge_dens")%>%
+  mutate(Mean_val=mean(value)) %>%filter(name=="mean_grStre")%>%
   ggplot()+ 
   geom_jitter(aes(y=value, x=n_years, colour=as.factor(Site)), width = 0.2)+
   geom_line(aes(y=Mean_val, x=n_years, colour=as.factor(Site)))+
   facet_grid(name~.,scales = "free") + 
   theme_classic()
-
+dif=output%>%group_by(Site)%>%mutate(dif=edge_dens[1]-edge_dens[12])
+unique(dif$dif)#els que mes canvien (per sobre mitja de -0,95): 
+C <- (which(unique(dif$dif)<mean(dif$dif))) # Localitzem la posició dels rius que varien mes
+list_rius <- unique(dif$Site)[C]
 output %>%
   #group_by(Year,n_sites) %>% 
   #mutate(Mean_val=mean(edge_dens)) %>% 
