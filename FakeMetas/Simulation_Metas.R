@@ -56,13 +56,13 @@ Scenarios <- c("Sc_Spa")#,"Sc_Env","Sc_SpaEnv")
 Community_Scenarios <- list()
 
 # D50 corresponding to the distance at which probability is 50%
-dispersal_test <- c(10)#,4000,300)
+dispersal_test <- c(4000)#,4000,300)
 Applied_Filter <- list(Filter_NO_Filter)#,Filter_Scen,Filter_Scen)
 
 for (Scenari in 1:length(Scenarios)) {
 a <- NULL # We create an output object for each iteration
 b <- list()
-for (it in 1:20) { # We repeat 10 times the same process
+for (it in 1:1) { # We repeat 10 times the same process
   output <- H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom_tempIT(
     Meta.pool = pool_200, # Species pool
     m.pool = 0.001, # Regional dispersal which is always constant 
@@ -84,11 +84,11 @@ for (it in 1:20) { # We repeat 10 times the same process
   b[[it]] <- output[[2]]
 }# it
 
-Out_Community <- matrix(nrow=nrow(b[[1]]),ncol=ncol(b[[1]]),data=0)
-for (iterat in 1:length(b)) {Out_Community <- Out_Community+b[[iterat]]}
-Out_Community <- Out_Community/length(b)
+#Out_Community <- matrix(nrow=nrow(b[[1]]),ncol=ncol(b[[1]]),data=0)
+#for (iterat in 1:length(b)) {Out_Community <- Out_Community+b[[iterat]]}
+#Out_Community <- Out_Community/length(b)
 
-Community_Scenarios[[Scenari]] <- Out_Community
+Community_Scenarios[[Scenari]] <- b[[1]]#Out_Community
 }# Scenari end
 
 
@@ -100,25 +100,31 @@ Out_Community<- Community_Scenarios[[1]]
 Out_Community <- as.data.frame(t(Out_Community)) %>% mutate(Site_ID=1:nrow(.),.before=V1) %>% 
                  pivot_longer(cols = 2:ncol(.))
 Out_Community<- Out_Community%>%filter(value>0)
-TypeNAT="Rand"
+
+TypeNAT=c("Rand","Dis_Dist","Dis_Env")
+
+fake_output_Total<- data.frame()
+fake_output_traits_str_Total <- data.frame()
+for (Type_NATs in 1:length(TypeNAT)) {
+
 fake_output <- data.frame()
 fake_output_traits_str <- data.frame()
 for (ind_year in 1:1) {
 cat("We are at Scenario", Scenarios[ind_year],"__________________________________________________","\n")
   
 ### SECOND LOOP - Number of randomly selected lakes
-for (iteration in 1:10) {
+for (iteration in 1:5) {
 cat("We are at iteration", iteration,"__________________________________________________","\n")
   
   
-  if(TypeNAT=="Rand"){
+  if(TypeNAT[[Type_NATs]]=="Rand"){
   # We randomly select lake names
   select_lakes <- sample(seq(1:ncol(b[[1]])), # The vector we want to select things from 
                          size =length(unique(Out_Community$Site_ID)), # The number of elements that we want to select
                          replace = F) # If we can repeat or not  
   }  
 
-  if(TypeNAT=="Env"){
+  if(TypeNAT[[Type_NATs]]=="Env"){
   Chosen_Beg <- sample(seq(1:ncol(b[[1]])), size =1,  replace = F)
   Chosen_OneS <- Chosen_Beg
   Chosen_One<- Rand_Filt[Chosen_Beg]
@@ -134,7 +140,7 @@ cat("We are at iteration", iteration,"__________________________________________
   select_lakes <- Chosen_OneS
   }
   
-  if(TypeNAT=="Dist"){
+  if(TypeNAT[[Type_NATs]]=="Dist"){
     lake_geo <- Lakes_coord[,1:3]
     lake_to_start <- sample(lake_geo$Lake,1)
 
@@ -165,7 +171,7 @@ for (Pos_Lak in 1:length(Lakes_coord$Lake)) {
 select_lakes[Pos_Lak] <- which(Lakes_coord$Lake==Llista_llacs[Pos_Lak])
 }} # If Spa ending 
 
-  if(TypeNAT=="Dis_Env"){
+  if(TypeNAT[[Type_NATs]]=="Dis_Env"){
     Chosen_Beg <- sample(seq(1:ncol(b[[1]])), size =1,  replace = F)
     Chosen_OneS <- Chosen_Beg
     Chosen_One<- Rand_Filt[Chosen_Beg]
@@ -181,7 +187,7 @@ select_lakes[Pos_Lak] <- which(Lakes_coord$Lake==Llista_llacs[Pos_Lak])
     select_lakes <- Chosen_OneS
   }
 
-  if(TypeNAT=="Dis_Dist"){
+  if(TypeNAT[[Type_NATs]]=="Dis_Dist"){
     lake_geo <- Lakes_coord[,1:3]
     lake_to_start <- sample(lake_geo$Lake,1)
     
@@ -211,7 +217,7 @@ select_lakes[Pos_Lak] <- which(Lakes_coord$Lake==Llista_llacs[Pos_Lak])
     for (Pos_Lak in 1:length(Lakes_coord$Lake)) {
       select_lakes[Pos_Lak] <- which(Lakes_coord$Lake==Llista_llacs[Pos_Lak])
     }}
-for (selected_lakes in c(1,3,5,6,8,10,21,56)) {
+for (selected_lakes in c(1,3,5,8,10,21,56)) {
 cat("We have seleted", selected_lakes,"lakes","__________________________________________________","\n")
 ### THIRD LOOP - We will repeat the same thing  several times  
 real_select_lakes <- select_lakes[1:selected_lakes]
@@ -245,7 +251,7 @@ transit_W <- mean(igraph::transitivity(NATs_Output$Graph, type = "barrat"),na.rm
 transit <- igraph::transitivity(NATs_Output$Graph, type = "global")
 
 
-temp_output <- data.frame(#"Type_NATS"=Type_of_NATs,
+temp_output <- data.frame("Type_NATS"=TypeNAT[[Type_NATs]],
                           "Scenario"=Scenarios[ind_year],
                           "n_sites"=selected_lakes,
                           "iter"=iteration,
@@ -255,7 +261,7 @@ temp_output <- data.frame(#"Type_NATS"=Type_of_NATs,
                           transit_W,
                           transit)
 fake_output <- bind_rows(fake_output,temp_output)
-temp_output_traits_str <- data.frame(#"Type_NATS"=Type_of_NATs,
+temp_output_traits_str <- data.frame("Type_NATS"=TypeNAT[[Type_NATs]],
                                 "Scenario"=Scenarios[ind_year],
                                  "n_sites"=selected_lakes,
                                  "iter"=iteration,
@@ -264,14 +270,24 @@ fake_output_traits_str <- bind_rows(fake_output_traits_str,temp_output_traits_st
     }# End of selected_lakes
   }# End of iteration
 }# End of ind_year
+
+fake_output_Total <- bind_rows(fake_output_Total,fake_output)
+fake_output_traits_str_Total <- bind_rows(fake_output_traits_str_Total,fake_output_traits_str)
+} # End NATs
+
 save(fake_output,file = "fake_NATs_dist_prova1_disp10km.RData")
 save(fake_output_traits_str,file = "fake_NATs_dist_prova1_disp10km.RData")
 
-temp_output %>% 
-  group_by(Scenario,iter,n_sites) %>% 
-  summarise(edge_dens=mean(edge_dens),mean_grStre=mean(mean_grStre)) %>% 
+fake_output_Total_10km <- fake_output_Total
+fake_output_Total_400km <- fake_output_Total
+
+fake_output_Total %>% 
+  group_by(Type_NATS,n_sites) %>% 
+  summarise(mean_edge_dens=mean(edge_dens),mean_grStre=mean(mean_grStre)) %>% 
   ggplot()+
-  geom_point(aes(x=n_sites,y=edge_dens))
+  geom_point(aes(x=n_sites,y=mean_edge_dens,colour=Type_NATS))+
+  geom_line(aes(x=n_sites,y=mean_edge_dens,colour=Type_NATS))+
+  theme_classic()
 
 
 load("fake_NATs_rand_prova1_disp300km.RData")
