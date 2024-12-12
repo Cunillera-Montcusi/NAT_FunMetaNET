@@ -155,7 +155,7 @@ resFD <- dbFD(
 important.indices <- cbind(resFD$nbsp, resFD$FRic, resFD$FEve, resFD$FDiv,
                            resFD$FDis, resFD$RaoQ)
 colnames(important.indices) <- c("NumbSpecies", "FRic", "FEve", "FDiv", "FDis", "Rao")
-save(important.indices,file = "res_FD_rivers_DisDist_def.RData")
+save(important.indices,file = "res_FD_rivers_Dist_def.RData")
 bind_cols(LakesMergedLakes[,1:3], important.indices)%>%
   pivot_longer(cols = 4:8) %>% 
   group_by(Year,n_sites,name) %>% 
