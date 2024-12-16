@@ -22,7 +22,7 @@ macros_lakes_list <- readxl::read_excel("ClustNAT/data/macros_lakes_list.xlsx") 
 years <- unique(macros_lakes_list$year)
 
 ### FIRST LOOP - Scenarios 
-TypeNAT=c("Random","Dis_Environment","Dis_Distance")
+TypeNAT=c("Random","Environment","Distance")
   
 cl <- detectCores() #Number of cores in computer
 registerDoParallel(cl)

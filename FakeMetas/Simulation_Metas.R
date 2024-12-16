@@ -9,7 +9,7 @@ library(parallel)
 Lakes_coord <- readxl::read_excel("NAT/lake_coord_surface.xlsx")
 
 Gamma_div <- 210 # Warning: A change in GAMMA diversity might impact some values linked to the filters (divided by 210)
-J.freshwater<-rep(300,nrow(Lakes_coord)) # J is the size of each community. Constant in this case
+J.freshwater<-rep(150,nrow(Lakes_coord)) # J is the size of each community. Constant in this case
 id_NOmodule <- rep(1,nrow(Lakes_coord)) # Modules just mean if we want some sites to belong to the same module. 
 pool_200 <- rep(1,Gamma_div) # Distribution of the species pool #rlnorm(n = 200,5,1) 
 Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(Lakes_coord), 1) #Previous Metacommunity (for considering time relevance)
@@ -19,7 +19,7 @@ Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(Lakes_coord), 1) #Previous
 cl <- detectCores() #Number of cores in computer
 registerDoParallel(cl)
 
-Number_Of_Replicates <- 2
+Number_Of_Replicates <- 1
 out <- foreach(Replicates=1:Number_Of_Replicates)%dopar%{
 #for (Replicates in 1:6) {
 library(tidyverse);library(geosphere)# Somehow we need to recharge the packages again.
@@ -111,8 +111,8 @@ Disp_Str <- c(rep(1,Gamma_div/3),rep(2,Gamma_div/3),rep(3,Gamma_div/3))
 # Distance matrix corresponding to distances between lakes
 Dist_True_Matr <- distm(Lakes_coord[,2:3])/1000
 Dist_Matr_High <- Dist_True_Matr
-Dist_Matr_Mid <- ifelse(Dist_True_Matr>150,5000,Dist_True_Matr)
-Dist_Matr_Low <- ifelse(Dist_True_Matr>50,5000,Dist_True_Matr)
+Dist_Matr_Mid <- ifelse(Dist_True_Matr>250,100000,Dist_True_Matr)
+Dist_Matr_Low <- ifelse(Dist_True_Matr>25,100000,Dist_True_Matr)
 
 Dist_Matr_Null <- ifelse(Dist_True_Matr>0,1,0)
 
@@ -143,7 +143,7 @@ output <- H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom_tempIT(
     Meta.pool = pool_200, # Species pool
     m.pool = 0.001, # Regional dispersal which is always constant 
     # Size of the communities (AKA: number of individuals/population contained in each community)
-    Js = J.freshwater-ceiling((J.freshwater*((2/(apply(Applied_Filter[[Scenari]],2,mean))))/100)), 
+    Js = J.freshwater,#-ceiling((J.freshwater*((2/(apply(Applied_Filter[[Scenari]],2,mean))))/100)), 
     id.module = id_NOmodule, # id of modules if there are some - NOT used for us
     filter.env = Applied_Filter[[Scenari]], # Pollution scenarios (created at 2. Pollution assignation.R)
     Disp_Strat=c(rep(1,Gamma_div/3),rep(2,Gamma_div/3),rep(3,Gamma_div/3)),
@@ -186,7 +186,7 @@ Out_Community <- as.data.frame(t(Out_Community)) %>% mutate(Site_ID=1:nrow(.),.b
                  pivot_longer(cols = 2:ncol(.))
 Out_Community<- Out_Community%>%filter(value>0)
 
-TypeNAT=c("Rand","Dis_Env","Dis_Dist")
+TypeNAT=c("Rand","Dis_Env","Dis_Dist","Env","Dist")
 
 fake_output_Total<- data.frame()
 fake_output_traits_str_Total <- data.frame()
@@ -199,7 +199,7 @@ cat("We are at", TypeNAT[Type_NATs],
     "and Replicate",Replicates,"/",Number_Of_Replicates,"___","\n")
   
 ### SECOND LOOP - Number of randomly selected lakes
-for (iteration in 1:35) {
+for (iteration in 1:15) {
 cat("We are at iteration", iteration,"__________________________________________________","\n")
   
   if(TypeNAT[[Type_NATs]]=="Rand"){
@@ -304,7 +304,7 @@ select_lakes[Pos_Lak] <- which(Lakes_coord$Lake==Llista_llacs[Pos_Lak])
     }
     }# If Dis_Spa ending
   
-for (selected_lakes in c(1,2,3,5,7,9,11,13,15,17,20,25,30,35,40,45,56)) {#
+for (selected_lakes in c(1,5,9,11,13,15,20,35,45,56)) {#
 cat("We have seleted", selected_lakes,"lakes","__________________________________________________","\n")
 ### THIRD LOOP - We will repeat the same thing  several times  
 real_select_lakes <- select_lakes[1:selected_lakes]
