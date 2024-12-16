@@ -63,7 +63,7 @@ gridExtra::grid.arrange(
 
 output_slope%>% 
   group_by(Year,Type_NATS) %>% 
-  summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=mean(ED_Curve_accel)) %>% 
+  summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=median(ED_Curve_accel)) %>% 
   ggplot(aes(x = Year, y=ED_Curve_accel))+
   geom_errorbar(aes(x = Year, y=ED_Curve_accel,ymin=ED_Curve_accel-Std_Dev ,ymax=ED_Curve_accel+Std_Dev,
                     colour=as.factor(Type_NATS)),alpha=0.5)+
@@ -90,7 +90,7 @@ output_slope%>%
 
 output_slope%>% 
   group_by(Year,Type_NATS) %>% 
-  summarise(Std_Dev=sd(GrStr_Obs_vs_Rand),GrStr_Obs_vs_Rand=mean(GrStr_Obs_vs_Rand)) %>% 
+  summarise(Std_Dev=sd(GrStr_Obs_vs_Rand),GrStr_Obs_vs_Rand=median(GrStr_Obs_vs_Rand)) %>% 
   ggplot(aes(x = Year, y=GrStr_Obs_vs_Rand ))+
   geom_point(shape=21,aes(fill=as.factor(Type_NATS)))+
   geom_errorbar(aes(x = Year, y=GrStr_Obs_vs_Rand ,ymin=GrStr_Obs_vs_Rand -Std_Dev ,ymax=GrStr_Obs_vs_Rand +Std_Dev,
