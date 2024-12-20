@@ -1,5 +1,8 @@
 
-load("ClusterNATs/Diss_ClusterNATs.RData")
+library(tidyverse);library(viridis)
+library(drc);library(nlme);library(statforbiology)
+
+load("ClusterNATs/Sim_ClusterNATs.RData")
 
 Final_O_put$Out_NAT %>% 
   group_by(Year,Type_NATS,n_sites)  %>% 
