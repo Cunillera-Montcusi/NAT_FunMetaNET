@@ -16,49 +16,49 @@ DisDist_lakes <- output
 
 
 full_output <- bind_rows(
-  rand_lakes%>% mutate(TypeNAT="Rand"),
-  env_lakes%>% mutate(TypeNAT="Env"),
-  dist_lakes%>% mutate(TypeNAT="Dist"),
-  DisEnv_lakes%>% mutate(TypeNAT="Dis_Env"),
-  DisDist_lakes%>% mutate(TypeNAT="Dis_Dist"))
+  rand_lakes%>% mutate(Type_NATS="Random"),
+  env_lakes%>% mutate(Type_NATS="Environment"),
+  dist_lakes%>% mutate(Type_NATS="Distance"),
+  DisEnv_lakes%>% mutate(Type_NATS="Dis_Environment"),
+  DisDist_lakes%>% mutate(Type_NATS="Dis_Distance"))
 
-years <- unique(full_output$Year)
-type <- unique(full_output$TypeNAT)
+full_output <- full_output %>% filter(Type_NATS%in%c("Random","Dis_Environment","Dis_Distance"))
+
+year <- unique(full_output$Year)
+type <- unique(full_output$Type_NATS)
+iter <- unique(full_output$iter)
 output_slope <- data.frame()
 
-### FIRST LOOP - TypeNAT
-for (ind_type in 1:length(type)) {
-  # We create a "temporary" file filtered according to the TypeNat selected. 
-  full_ouput_temp <- full_output %>% filter(TypeNAT==type[ind_type])
-  # All years of that typeNAT
-  year_type <- unique(full_ouput_temp$Year)
+unique(full_output$n_sites)
 
-### 2ND LOOP - YEAR
-  for (year in 1:length(year_type)) {
-    
-    random <- full_output %>% filter(TypeNAT=="Rand",Year==years[year]) %>% 
-      group_by(n_sites)%>%summarise_if(is.numeric, ~mean(.))
-    
-    model_Random <- lm(mean_grStre~(as.numeric(n_sites)), data=random)
-    
-    Model_nats <- predict(model_Random)
-    
-    #fltrem cada any
-    full_output_temp_temp <- full_ouput_temp %>% filter(Year==years[year])%>%
-      group_by(n_sites)%>%summarise_if(is.numeric, ~mean(.))
-    #lm <- summary(lm(mean_grStre~(as.numeric(n_sites)), data=full_output_temp_temp))
-    #slope <- lm$coefficients[2,1]
-    
-    slope <- abs(Model_nats-(full_output_temp_temp$mean_grStre))
-    
-    Y <-  full_output_temp_temp$edge_dens
-    X <- full_output_temp_temp$n_sites
-    model_S <- nls(Y~NLS.asymReg(X, init, m, plateau))
-    output_slope2 <- data.frame("TypeNAT"=type[ind_type],
-                                "site"=full_output_temp_temp$n_sites,
-                                "Year"=year_type[year], "Slope"=(slope),
-                                "m"=coefficients(model_S)[2],
-                                "plat"=coefficients(model_S)[3])
+for (sceni in 1:length(year)) {
+  Sceni_full_ouput_temp <-  full_output %>% filter(Year==year[sceni])
+  for (ind_type in 1:length(type)) {
+  #for (itera in 1:length(iter)) {
+  # We create a "temporary" file filtered according to the TypeNat selected. 
+  full_ouput_temp <- Sceni_full_ouput_temp %>% filter(Type_NATS==type[ind_type]) # En cas de voler filtrar per iteració #,iter==iter[itera]
+  random <- Sceni_full_ouput_temp %>% filter(Type_NATS=="Random") %>% # ,iter==iter[itera]
+                                      group_by(n_sites)%>%summarise_if(is.numeric, ~mean(.))
+  
+  model_Random <- lm(mean_grStre~(as.numeric(n_sites)), data=random)
+  Model_nats <- predict(model_Random)  
+  
+  
+  full_output_temp_temp <- full_ouput_temp %>%group_by(n_sites)%>%summarise_if(is.numeric, ~mean(.))
+  slope <- abs(Model_nats-(full_output_temp_temp$mean_grStre))
+  
+  full_output_temp_temp <- full_ouput_temp
+  Y <-  full_output_temp_temp$edge_dens
+  X <- full_output_temp_temp$n_sites
+  control1 <- nls.control(maxiter= 1000,tol=1e-02, warnOnly=TRUE)
+  model_S <- nls(Y~NLS.asymReg(X, init, m, plateau),control=control1)
+  output_slope2 <- data.frame("Year"=year[sceni],
+                              "Type_NATS"=type[ind_type],
+                              #"iter"=iter[itera],
+                              #"site"=full_output_temp_temp$n_sites,
+                              "GrStr_Obs_vs_Rand"=(slope),
+                              "ED_Curve_accel"=coefficients(model_S)[2],
+                              "ED_Plateau"=coefficients(model_S)[3])
     
     output_slope <- rbind(output_slope,output_slope2)
   }
@@ -66,7 +66,7 @@ for (ind_type in 1:length(type)) {
 
 
 # Merge with richness
-unique(full_output$TypeNAT)
+unique(full_output$Type_NATS)
 
 output_slope
 

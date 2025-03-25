@@ -19,7 +19,7 @@ Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(Lakes_coord), 1) #Previous
 cl <- detectCores() #Number of cores in computer
 registerDoParallel(cl)
 
-Number_Of_Replicates <- 1
+Number_Of_Replicates <- 15
 out <- foreach(Replicates=1:Number_Of_Replicates)%dopar%{
 #for (Replicates in 1:6) {
 library(tidyverse);library(geosphere)# Somehow we need to recharge the packages again.
@@ -143,7 +143,7 @@ output <- H2020_Coalescent.and.lottery.exp.Kernel.J_TempMtcom_tempIT(
     Meta.pool = pool_200, # Species pool
     m.pool = 0.001, # Regional dispersal which is always constant 
     # Size of the communities (AKA: number of individuals/population contained in each community)
-    Js = J.freshwater,#-ceiling((J.freshwater*((2/(apply(Applied_Filter[[Scenari]],2,mean))))/100)), 
+    Js = J.freshwater-ceiling((J.freshwater*((2/(apply(Applied_Filter[[Scenari]],2,mean))))/100)), 
     id.module = id_NOmodule, # id of modules if there are some - NOT used for us
     filter.env = Applied_Filter[[Scenari]], # Pollution scenarios (created at 2. Pollution assignation.R)
     Disp_Strat=c(rep(1,Gamma_div/3),rep(2,Gamma_div/3),rep(3,Gamma_div/3)),
@@ -359,7 +359,8 @@ temp_output_traits_str <- data.frame("Replicates"=Replicates,
                                      "Type_NATS"=TypeNAT[[Type_NATs]],
                                      "n_sites"=selected_lakes,
                                      "iter"=iteration,
-                                  gr_Stre, Tra=colnames(Trait_Matrix)[2:ncol(Trait_Matrix)])
+                                      "Tra_gr_Stre"=gr_Stre, 
+                                      "Tra"=colnames(Trait_Matrix)[2:ncol(Trait_Matrix)])
 fake_output_traits_str <- bind_rows(fake_output_traits_str,temp_output_traits_str)
     }# End of selected_lakes
   }# End of iteration

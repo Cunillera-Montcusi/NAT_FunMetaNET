@@ -2,9 +2,11 @@
 library(tidyverse);library(viridis)
 library(drc);library(nlme);library(statforbiology)
 
-load("ClusterNATs/Sim_ClusterNATs.RData")
+load("ClustNAT/Diss_ClusterNATs.RData")
 
-Final_O_put$Out_NAT %>% 
+Final_O_put$Out_NAT <- Final_Output$lake$Out_NAT 
+
+Final_O_put$Out_NAT%>% 
   group_by(Year,Type_NATS,n_sites)  %>% 
   summarise(mean_edge_dens=mean(edge_dens),mean_mean_grStre=mean(mean_grStre)) %>% 
   ggplot()+
@@ -12,6 +14,7 @@ Final_O_put$Out_NAT %>%
   geom_line(aes(x=n_sites,y=mean_edge_dens,colour=Type_NATS,linetype=as.factor(Type_NATS)))+
   theme_classic()+facet_wrap(Year~.,scales="free")
 
+Final_O_put$Out_NAT <- Final_O_put$Out_NAT %>% filter(n_sites%in%c(1,3,5,7,9,11,13,15,20,25,35,45,56))
 
 year <- unique(Final_O_put$Out_NAT$Year)
 type <- unique(Final_O_put$Out_NAT$Type_NATS)
@@ -21,10 +24,10 @@ output_slope <- data.frame()
 for (sceni in 1:length(year)) {
     Sceni_full_ouput_temp <-  Final_O_put$Out_NAT %>% filter(Year==year[sceni])
     for (ind_type in 1:length(type)) {
-      for (itera in 1:length(iter)) {
+      #for (itera in 1:length(iter)) {
       # We create a "temporary" file filtered according to the TypeNat selected. 
-      full_ouput_temp <- Sceni_full_ouput_temp %>% filter(Type_NATS==type[ind_type],iter==iter[itera]) # En cas de voler filtrar per iteració
-      random <- Sceni_full_ouput_temp %>% filter(Type_NATS=="Random",iter==iter[itera]) %>% 
+      full_ouput_temp <- Sceni_full_ouput_temp %>% filter(Type_NATS==type[ind_type])#,iter==iter[itera]) # En cas de voler filtrar per iteració
+      random <- Sceni_full_ouput_temp %>% filter(Type_NATS=="Random") %>% # ,iter==iter[itera]
         group_by(n_sites)%>%summarise_if(is.numeric, ~mean(.))
       
       model_Random <- lm(mean_grStre~(as.numeric(n_sites)), data=random)
@@ -51,14 +54,14 @@ for (sceni in 1:length(year)) {
       model_S <- nls(Y~NLS.asymReg(X, init, m, plateau),control=control1)
       output_slope2 <- data.frame("Year"=year[sceni],
                                   "Type_NATS"=type[ind_type],
-                                  "iter"=iter[itera],
+                                  #"iter"=iter[itera],
                                   #"site"=full_output_temp_temp$n_sites,
                                   "GrStr_Obs_vs_Rand"=(slope),
                                   "ED_Curve_accel"=coefficients(model_S)[2],
                                   "ED_Plateau"=coefficients(model_S)[3])
       
       output_slope <- rbind(output_slope,output_slope2)
-    }#itera
+    #}#itera
   }#Type Nats
 }# sceni
 

@@ -21,16 +21,16 @@ scenario <- unique(FULL_Out_NAT$Scenario)
 type <- unique(FULL_Out_NAT$Type_NATS)
 iter <- unique(FULL_Out_NAT$iter)
 output_slope <- data.frame()
-for (repli in 1:length(out)) {
-  Repli_full_ouput_temp <- FULL_Out_NAT %>% filter(Replicates==repli)  
+#for (repli in 1:length(out)) {
+  Repli_full_ouput_temp <- FULL_Out_NAT #%>% filter(Replicates==repli)  
   for (sceni in 1:length(scenario)) {
     Sceni_full_ouput_temp <-  Repli_full_ouput_temp %>% filter(Scenario==scenario[sceni])
     for (ind_type in 1:length(type)) {
-      #for (itera in 1:length(iter)) {
+      for (itera in 1:length(iter)) {
       # We create a "temporary" file filtered according to the TypeNat selected. 
-      full_ouput_temp <- Sceni_full_ouput_temp %>% filter(Type_NATS==type[ind_type])#,iter==iter[itera]) # En cas de voler filtrar per iteració
-      random <- Sceni_full_ouput_temp %>% filter(Type_NATS=="Rand") %>%#,iter==iter[itera]) %>% 
-        group_by(n_sites)%>%summarise_if(is.numeric, ~mean(.))
+      full_ouput_temp <- Sceni_full_ouput_temp %>% filter(Type_NATS==type[ind_type],iter==iter[itera]) # En cas de voler filtrar per iteració
+      random <- Sceni_full_ouput_temp %>% filter(Type_NATS=="Rand",iter==iter[itera]) %>% 
+                                          group_by(n_sites)%>%summarise_if(is.numeric, ~mean(.))
       
       model_Random <- lm(mean_grStre~(as.numeric(n_sites)), data=random)
       Model_nats <- predict(model_Random)
@@ -53,23 +53,20 @@ for (repli in 1:length(out)) {
       X <- full_output_temp_temp$n_sites
       control1 <- nls.control(maxiter= 1000,tol=1e-02, warnOnly=TRUE)
       model_S <- nls(Y~NLS.asymReg(X, init, m, plateau),control=control1)
-      output_slope2 <- data.frame("Replicates"=repli,
+      output_slope2 <- data.frame(#"Replicates"=repli,
                                   "Scenario"=scenario[sceni],
                                   "Type_NATS"=type[ind_type],
-                                  #"iter"=iter[itera],
+                                  "iter"=iter[itera],
                                   #"site"=full_output_temp_temp$n_sites,
                                   "GrStr_Obs_vs_Rand"=(slope),
                                   "ED_Curve_accel"=coefficients(model_S)[2],
                                   "ED_Plateau"=coefficients(model_S)[3])
       
       output_slope <- rbind(output_slope,output_slope2)
-#      }#itera
+      }#itera
     }#Type Nats
   }# sceni
-}# Repli
-
-
-
+#}# Repli
 
 
 
@@ -77,7 +74,7 @@ gridExtra::grid.arrange(
   
   output_slope%>% 
     group_by(Scenario,Type_NATS) %>% 
-    summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=mean(ED_Curve_accel)) %>% 
+    summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=median(ED_Curve_accel)) %>% 
     ggplot(aes(x = Type_NATS, y=ED_Curve_accel))+
     geom_errorbar(aes(x = Type_NATS, y=ED_Curve_accel,ymin=ED_Curve_accel-Std_Dev ,ymax=ED_Curve_accel+Std_Dev,
                       colour=as.factor(Type_NATS)),alpha=0.5)+
@@ -89,11 +86,11 @@ gridExtra::grid.arrange(
     theme_classic(),
   
   output_slope%>% 
-    group_by(Scenario,Replicates,Type_NATS) %>% 
+    group_by(Scenario,Type_NATS) %>% 
     summarise(Std_Dev=sd(ED_Curve_accel),ED_Plateau=mean(ED_Plateau)) %>% 
-    ggplot(aes(x = Replicates, y=ED_Plateau))+
+    ggplot(aes(x = Type_NATS, y=ED_Plateau))+
     geom_point(shape=21,aes(fill=as.factor(Type_NATS)))+
-    geom_errorbar(aes(x = Replicates, y=ED_Plateau,ymin=ED_Plateau-Std_Dev ,ymax=ED_Plateau+Std_Dev,
+    geom_errorbar(aes(x = Type_NATS, y=ED_Plateau,ymin=ED_Plateau-Std_Dev ,ymax=ED_Plateau+Std_Dev,
                       colour=as.factor(Type_NATS)),alpha=0.5)+
     geom_line(aes(colour=Type_NATS))+
     scale_fill_viridis(discrete = T)+  scale_colour_viridis(discrete = T)+
@@ -102,16 +99,16 @@ gridExtra::grid.arrange(
     theme_classic(),
   
   output_slope%>% 
-    group_by(Scenario,Replicates,Type_NATS) %>% 
+    group_by(Scenario,Type_NATS) %>% 
     summarise(Std_Dev=sd(GrStr_Obs_vs_Rand),GrStr_Obs_vs_Rand=mean(GrStr_Obs_vs_Rand)) %>% 
-    ggplot(aes(x = Replicates, y=GrStr_Obs_vs_Rand ))+
+    ggplot(aes(x = Type_NATS, y=GrStr_Obs_vs_Rand ))+
     geom_point(shape=21,aes(fill=as.factor(Type_NATS)))+
-    geom_errorbar(aes(x = Replicates, y=GrStr_Obs_vs_Rand ,ymin=GrStr_Obs_vs_Rand -Std_Dev ,ymax=GrStr_Obs_vs_Rand +Std_Dev,
+    geom_errorbar(aes(x = Type_NATS, y=GrStr_Obs_vs_Rand ,ymin=GrStr_Obs_vs_Rand -Std_Dev ,ymax=GrStr_Obs_vs_Rand +Std_Dev,
                       colour=as.factor(Type_NATS)),alpha=0.5)+
     geom_line(aes(colour=Type_NATS))+
     scale_fill_viridis(discrete = T)+  scale_colour_viridis(discrete = T)+
     labs(fill="Type NATS")+ guides(colour="none")+
-    facet_wrap(.~Scenario,scales = "free")+
+    facet_wrap(.~Scenario, scales="free")+
     theme_classic(),
   
   nrow=3)
