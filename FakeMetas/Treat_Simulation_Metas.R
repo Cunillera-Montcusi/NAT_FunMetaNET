@@ -21,15 +21,15 @@ scenario <- unique(FULL_Out_NAT$Scenario)
 type <- unique(FULL_Out_NAT$Type_NATS)
 iter <- unique(FULL_Out_NAT$iter)
 output_slope <- data.frame()
-#for (repli in 1:length(out)) {
-  Repli_full_ouput_temp <- FULL_Out_NAT #%>% filter(Replicates==repli)  
+for (repli in 1:length(out)) {
+  Repli_full_ouput_temp <- FULL_Out_NAT %>% filter(Replicates==repli)  
   for (sceni in 1:length(scenario)) {
     Sceni_full_ouput_temp <-  Repli_full_ouput_temp %>% filter(Scenario==scenario[sceni])
     for (ind_type in 1:length(type)) {
-      for (itera in 1:length(iter)) {
+      #for (itera in 1:length(iter)) {
       # We create a "temporary" file filtered according to the TypeNat selected. 
-      full_ouput_temp <- Sceni_full_ouput_temp %>% filter(Type_NATS==type[ind_type],iter==iter[itera]) # En cas de voler filtrar per iteració
-      random <- Sceni_full_ouput_temp %>% filter(Type_NATS=="Rand",iter==iter[itera]) %>% 
+      full_ouput_temp <- Sceni_full_ouput_temp %>% filter(Type_NATS==type[ind_type])#,iter==iter[itera]) # En cas de voler filtrar per iteració
+      random <- Sceni_full_ouput_temp %>% filter(Type_NATS=="Rand") %>%#,iter==iter[itera]) %>% 
                                           group_by(n_sites)%>%summarise_if(is.numeric, ~mean(.))
       
       model_Random <- lm(mean_grStre~(as.numeric(n_sites)), data=random)
@@ -53,49 +53,83 @@ output_slope <- data.frame()
       X <- full_output_temp_temp$n_sites
       control1 <- nls.control(maxiter= 1000,tol=1e-02, warnOnly=TRUE)
       model_S <- nls(Y~NLS.asymReg(X, init, m, plateau),control=control1)
-      output_slope2 <- data.frame(#"Replicates"=repli,
+      output_slope2 <- data.frame("Replicates"=repli,
                                   "Scenario"=scenario[sceni],
                                   "Type_NATS"=type[ind_type],
-                                  "iter"=iter[itera],
+                                  #"iter"=iter[itera],
                                   #"site"=full_output_temp_temp$n_sites,
                                   "GrStr_Obs_vs_Rand"=(slope),
                                   "ED_Curve_accel"=coefficients(model_S)[2],
                                   "ED_Plateau"=coefficients(model_S)[3])
       
       output_slope <- rbind(output_slope,output_slope2)
-      }#itera
+     # }#itera
     }#Type Nats
   }# sceni
-#}# Repli
+}# Repli
+
+
+out_Model_List <- list()
+for (ScenariosS in 1:length(unique(output_slope$Scenario))) {
+Comparison_data <- output_slope %>% group_by(Replicates,Scenario,Type_NATS) %>% 
+                                    summarise(ED_Curve_accel =mean(ED_Curve_accel ),.groups = "drop" )%>%
+                                    filter(Scenario==unique(output_slope$Scenario)[ScenariosS]) %>% 
+                                    filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  
+
+Comparison_data$Type_NATS <- factor(Comparison_data$Type_NATS,levels=c("Rand","Env","Dist"))
+Comparison_data <- within(Comparison_data, Type_NATS <- relevel(Type_NATS, ref = 1))
+
+model <- lmerTest::lmer(ED_Curve_accel  ~Type_NATS + (1|Replicates) , data=Comparison_data)
+out_Model_List[[ScenariosS]] <- summary(model)
+cat("For", unique(output_slope$Scenario)[ScenariosS], 
+    "Env is", ifelse(summary(model)$coefficients[2,5]<0.05,"Different","NOdifferent"),  
+    "and Disp is",ifelse(summary(model)$coefficients[3,5]<0.05,"Different","NOdifferent"), "\n")
+}
+
+output_slope%>% group_by(Replicates,Scenario,Type_NATS) %>% 
+                summarise(ED_Curve_accel =mean(ED_Curve_accel ))%>%
+                filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  %>% 
+  #group_by(Scenario,Type_NATS) %>% 
+  #summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=ED_Curve_accel) %>% 
+  ggplot(aes(x = Type_NATS, y=ED_Curve_accel  ))+
+  #geom_errorbar(aes(x = Type_NATS, y=ED_Curve_accel,ymin=ED_Curve_accel-Std_Dev ,ymax=ED_Curve_accel+Std_Dev,
+  #                  colour=as.factor(Type_NATS)),alpha=0.5)+
+  geom_violin(aes(fill=as.factor(Type_NATS),color=as.factor(Type_NATS)),alpha=0.2)+
+  geom_jitter(shape=21,aes(fill=as.factor(Type_NATS)),size=2,alpha=0.6,width = 0.1)+
+  scale_fill_viridis(discrete = T)+  scale_colour_viridis(discrete = T)+
+  labs(fill="Type NATS")+ guides(colour="none")+
+  facet_wrap(.~Scenario,scale="free")+
+  theme_classic()
+
 
 
 
 gridExtra::grid.arrange(
   
-  output_slope%>% 
+  output_slope %>% 
     group_by(Scenario,Type_NATS) %>% 
-    summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=median(ED_Curve_accel)) %>% 
+    summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=(ED_Curve_accel)) %>% 
     ggplot(aes(x = Type_NATS, y=ED_Curve_accel))+
-    geom_errorbar(aes(x = Type_NATS, y=ED_Curve_accel,ymin=ED_Curve_accel-Std_Dev ,ymax=ED_Curve_accel+Std_Dev,
-                      colour=as.factor(Type_NATS)),alpha=0.5)+
+    #geom_errorbar(aes(x = Type_NATS, y=ED_Curve_accel,ymin=ED_Curve_accel-Std_Dev ,ymax=ED_Curve_accel+Std_Dev,
+    #                  colour=as.factor(Type_NATS)),alpha=0.5)+
     geom_point(shape=21,aes(fill=as.factor(Type_NATS)))+
     #geom_line(aes(colour=Type_NATS))+
     scale_fill_viridis(discrete = T)+  scale_colour_viridis(discrete = T)+
     labs(fill="Type NATS")+ guides(colour="none")+
-    facet_wrap(.~Scenario,scales = "free")+
+    facet_wrap(.~Scenario)+
     theme_classic(),
   
   output_slope%>% 
-    group_by(Scenario,Type_NATS) %>% 
+    group_by(Replicates,Scenario,Type_NATS) %>% 
     summarise(Std_Dev=sd(ED_Curve_accel),ED_Plateau=mean(ED_Plateau)) %>% 
-    ggplot(aes(x = Type_NATS, y=ED_Plateau))+
+    ggplot(aes(x = as.factor(Replicates), y=ED_Plateau))+
     geom_point(shape=21,aes(fill=as.factor(Type_NATS)))+
-    geom_errorbar(aes(x = Type_NATS, y=ED_Plateau,ymin=ED_Plateau-Std_Dev ,ymax=ED_Plateau+Std_Dev,
+    geom_errorbar(aes(x = as.factor(Replicates), y=ED_Plateau,ymin=ED_Plateau-Std_Dev ,ymax=ED_Plateau+Std_Dev,
                       colour=as.factor(Type_NATS)),alpha=0.5)+
-    geom_line(aes(colour=Type_NATS))+
+    #geom_line(aes(colour=Type_NATS))+
     scale_fill_viridis(discrete = T)+  scale_colour_viridis(discrete = T)+
     labs(fill="Type NATS")+ guides(colour="none")+
-    facet_wrap(.~Scenario,scales = "free")+
+    facet_wrap(.~Scenario)+
     theme_classic(),
   
   output_slope%>% 

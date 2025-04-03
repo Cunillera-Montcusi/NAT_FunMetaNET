@@ -2,11 +2,11 @@
 library(tidyverse);library(viridis)
 library(drc);library(nlme);library(statforbiology)
 
-load("ClustNAT/Diss_ClusterNATs.RData")
+load("ClustNAT/ClusterNATs.RData")
 
-Final_O_put$Out_NAT <- Final_Output$lake$Out_NAT 
+Final_O_put <- Final_Output$lake$Out_NAT 
 
-Final_O_put$Out_NAT%>% 
+Final_O_put%>% 
   group_by(Year,Type_NATS,n_sites)  %>% 
   summarise(mean_edge_dens=mean(edge_dens),mean_mean_grStre=mean(mean_grStre)) %>% 
   ggplot()+
@@ -14,15 +14,13 @@ Final_O_put$Out_NAT%>%
   geom_line(aes(x=n_sites,y=mean_edge_dens,colour=Type_NATS,linetype=as.factor(Type_NATS)))+
   theme_classic()+facet_wrap(Year~.,scales="free")
 
-Final_O_put$Out_NAT <- Final_O_put$Out_NAT %>% filter(n_sites%in%c(1,3,5,7,9,11,13,15,20,25,35,45,56))
-
-year <- unique(Final_O_put$Out_NAT$Year)
-type <- unique(Final_O_put$Out_NAT$Type_NATS)
-iter <- unique(Final_O_put$Out_NAT$iter)
+year <- unique(Final_O_put$Year)
+type <- unique(Final_O_put$Type_NATS)
+iter <- unique(Final_O_put$iter)
 output_slope <- data.frame()
 
 for (sceni in 1:length(year)) {
-    Sceni_full_ouput_temp <-  Final_O_put$Out_NAT %>% filter(Year==year[sceni])
+    Sceni_full_ouput_temp <-  Final_O_put %>% filter(Year==year[sceni])
     for (ind_type in 1:length(type)) {
       #for (itera in 1:length(iter)) {
       # We create a "temporary" file filtered according to the TypeNat selected. 
@@ -68,6 +66,7 @@ for (sceni in 1:length(year)) {
 gridExtra::grid.arrange(
 
 output_slope%>% 
+  filter(Type_NATS%in%c("Random","Distance","Environment")) %>% 
   group_by(Year,Type_NATS) %>% 
   summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=median(ED_Curve_accel)) %>% 
   ggplot(aes(x = Year, y=ED_Curve_accel))+

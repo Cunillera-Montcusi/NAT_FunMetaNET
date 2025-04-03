@@ -12,7 +12,7 @@ ecosyst <- All_ecosyst[Type_of_ecosyst]
   
   if(ecosyst=="lake"){
   # Traits database (canviar a filtrat per generes)
-  traits <-read.csv2("ClustNAT/data/tachet.traits.def_mod.csv", header=TRUE, sep=";", na.strings="")
+  traits <-read.csv2("ClustNAT/data/tachet.traits.def.csv", header=TRUE, sep=";", na.strings="")
   traits[,11:ncol(traits)] <- ifelse(traits[,11:ncol(traits)]>=3,1,0)#all afiliations higher than 1 have a 1
   
   # We transform and caclulate the mean for each Genus and ensure that the values are equal 1
@@ -56,7 +56,7 @@ Number_of_iterations <- 20
 
 # All years 
 years <- unique(macros_lakes_list$year)
-years <- years[1:6]
+years <- years
 
 ### FIRST LOOP - Scenarios 
 TypeNAT=c("Random","Environment","Dis_Environment","Distance","Dis_Distance")
@@ -226,7 +226,7 @@ LakesMergedLakes <- matrix(ncol = length(unique(macros_lakes_list$site))+3, data
 for (Type_NATs in 1:length(TypeNAT)) {
 for (ind_year in 1:length(years)) {
 NAT_output <- bind_rows(NAT_output,out[[Type_NATs]][[ind_year]]$Out_NAT)
-NAT_output_traits_str <- bind_rows(NAT_output,out[[Type_NATs]][[ind_year]]$Out_NAT_Trait)
+NAT_output_traits_str <- bind_rows(NAT_output_traits_str,out[[Type_NATs]][[ind_year]]$Out_NAT_Trait)
 LakesMergedLakes <- rbind(LakesMergedLakes,out[[Type_NATs]][[ind_year]]$LakMergLak)
   }# ind_years 
 }# Type_NATs

@@ -22,7 +22,7 @@ full_output <- bind_rows(
   DisEnv_lakes%>% mutate(Type_NATS="Dis_Environment"),
   DisDist_lakes%>% mutate(Type_NATS="Dis_Distance"))
 
-full_output <- full_output %>% filter(Type_NATS%in%c("Random","Dis_Environment","Dis_Distance"))
+full_output <- full_output %>% filter(Type_NATS%in%c("Random","Environment","Distance"))
 
 year <- unique(full_output$Year)
 type <- unique(full_output$Type_NATS)
@@ -31,7 +31,7 @@ output_slope <- data.frame()
 
 unique(full_output$n_sites)
 
-for (sceni in 1:length(year)) {
+for (sceni in 1:6) {
   Sceni_full_ouput_temp <-  full_output %>% filter(Year==year[sceni])
   for (ind_type in 1:length(type)) {
   #for (itera in 1:length(iter)) {
