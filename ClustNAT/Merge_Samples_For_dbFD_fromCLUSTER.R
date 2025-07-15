@@ -76,7 +76,8 @@ names(Combis_Communities_TYPE_Nats) <- c("Random","Environment","Distance")
 
 DF_FunIndices <- data.frame()
 for (Type_NATs in 1:length(Equal_Ones)) {
-  Combis_Communities_small <- data.frame(Combis_Communities_TYPE_Nats[[1]], row.names = 1)%>% mutate_if(is.character, as.numeric)#per posar el nom de les localitats 
+  Combis_Communities_small <- data.frame(Combis_Communities_TYPE_Nats[[Type_NATs]], row.names = 1)%>% 
+                              mutate_if(is.character, as.numeric)#per posar el nom de les localitats 
   
   resFD <- dbFD( 
     dis_traits, 
