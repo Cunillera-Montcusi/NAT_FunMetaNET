@@ -6,7 +6,7 @@ library(parallel)
 
 Final_Output <- list()
 
-All_ecosyst <- c("lake","river")
+All_ecosyst <- c("river") # ,"lake"
 for (Type_of_ecosyst in 1:length(All_ecosyst)) {
 ecosyst <- All_ecosyst[Type_of_ecosyst]
   
@@ -49,17 +49,17 @@ ecosyst <- All_ecosyst[Type_of_ecosyst]
   }
 
 # Sequence of additions
-# Addition_sequence<-c(1:15,seq(17,(length(unique(macros_lakes_list$site))-1),3),length(unique(macros_lakes_list$site)))
-# Number_of_iterations<-length(unique(macros_lakes_list$site))
-Addition_sequence <- c(1,3,5,7,9,11,13,15,20,25,35,45,56)
-Number_of_iterations <- 20
+Addition_sequence<-c(1:15,seq(17,(length(unique(macros_lakes_list$site))-1),5),length(unique(macros_lakes_list$site)))
+#Addition_sequence <- c(1,3,5,7,9,11,13,15,20,25,35,45,56)
+#Number_of_iterations<-length(unique(macros_lakes_list$site))
+Number_of_iterations <- 35
 
 # All years 
 years <- unique(macros_lakes_list$year)
 years <- years
 
 ### FIRST LOOP - Scenarios 
-TypeNAT=c("Random","Environment","Dis_Environment","Distance","Dis_Distance")
+TypeNAT=c("Random","Environment","Distance")#,"Dis_Distance","Dis_Environment")
   
 cl <- detectCores() #Number of cores in computer
 registerDoParallel(cl)
@@ -80,7 +80,7 @@ out <- foreach(Type_NATs=1:length(TypeNAT))%:%foreach(ind_year=1:length(years))%
   source("ClustNAT/Functions/function_to_ENV_DISIM.R");  source("ClustNAT/Functions/function_to_DIST_DISIM.R")
   
 #for (ind_year in 1:length(years)) {
-    cat("We are at", TypeNAT[Type_NATs], "and year", ind_year, "of", length(years),"___","\n")
+    #cat("We are at", TypeNAT[Type_NATs], "and year", ind_year, "of", length(years),"___","\n")
     
     macros_lakes_list_temp <- macros_lakes_list %>% filter(year==years[ind_year])
     # All lakes of that year
@@ -88,7 +88,7 @@ out <- foreach(Type_NATs=1:length(TypeNAT))%:%foreach(ind_year=1:length(years))%
     
     ### SECOND LOOP - Number of randomly selected lakes
     for (iteration in 1:Number_of_iterations) {
-      cat("We are at iteration", iteration,"__________________________________________________","\n")
+      #cat("We are at iteration", iteration,"__________________________________________________","\n")
 
       # We randomly select lake names
       if(TypeNAT[Type_NATs]=="Random"){
@@ -123,7 +123,7 @@ out <- foreach(Type_NATs=1:length(TypeNAT))%:%foreach(ind_year=1:length(years))%
       }
       
       for (selected_lakes in Addition_sequence) {#
-        cat("We have seleted", selected_lakes,"lakes","__________________________________________________","\n")
+        #cat("We have seleted", selected_lakes,"lakes","__________________________________________________","\n")
         ### THIRD LOOP - We will repeat the same thing  several times  
         real_select_lakes <- select_lakes[1:selected_lakes]
         macros_lakes_list_temp_temp <- macros_lakes_list_temp %>% filter(site%in%real_select_lakes)
@@ -182,6 +182,10 @@ out <- foreach(Type_NATs=1:length(TypeNAT))%:%foreach(ind_year=1:length(years))%
         edge_dens <- igraph::edge_density(NATs_Output$Graph)
         mean_grStre <- mean(igraph::graph.strength(NATs_Output$Graph))
         gr_Stre <- igraph::graph.strength(NATs_Output$Graph)
+        g <- igraph::graph.adjacency(1/(NATs_Output$Adj_Table),weighted = TRUE)
+        betw_Stre <- igraph::betweenness(g) 
+        clos_Stre <- igraph::harmonic_centrality(g)
+        
         transit_W <- mean(igraph::transitivity(NATs_Output$Graph, type = "barrat"),na.rm=TRUE)
         transit <- igraph::transitivity(NATs_Output$Graph, type = "global")
         
@@ -206,6 +210,8 @@ out <- foreach(Type_NATs=1:length(TypeNAT))%:%foreach(ind_year=1:length(years))%
                                              "n_sites"=selected_lakes,
                                              "iter"=iteration,
                                              gr_Stre, 
+                                             betw_Stre,
+                                             clos_Stre,
                                              "Tra"=Names_Traits)
         NAT_output_traits_str <- bind_rows(NAT_output_traits_str,temp_output_traits_str)
         
@@ -220,20 +226,20 @@ out <- foreach(Type_NATs=1:length(TypeNAT))%:%foreach(ind_year=1:length(years))%
     out
   }# Parallel ending
 
-NAT_output <- data.frame()
-NAT_output_traits_str <- data.frame()
+NAT_output_TEMP <- data.frame()
+NAT_output_traits_str_TEMP <- data.frame()
 LakesMergedLakes <- matrix(ncol = length(unique(macros_lakes_list$site))+3, data = NA)
 for (Type_NATs in 1:length(TypeNAT)) {
 for (ind_year in 1:length(years)) {
-NAT_output <- bind_rows(NAT_output,out[[Type_NATs]][[ind_year]]$Out_NAT)
-NAT_output_traits_str <- bind_rows(NAT_output_traits_str,out[[Type_NATs]][[ind_year]]$Out_NAT_Trait)
+NAT_output_TEMP <- bind_rows(NAT_output_TEMP,out[[Type_NATs]][[ind_year]]$Out_NAT)
+NAT_output_traits_str_TEMP <- bind_rows(NAT_output_traits_str_TEMP,out[[Type_NATs]][[ind_year]]$Out_NAT_Trait)
 LakesMergedLakes <- rbind(LakesMergedLakes,out[[Type_NATs]][[ind_year]]$LakMergLak)
   }# ind_years 
 }# Type_NATs
 
-Final_O_put <- list("Out_NAT"=NAT_output,"Out_NAT_Trait"=NAT_output_traits_str, "LakMergLak"=LakesMergedLakes)
+Final_O_put <- list("Out_NAT"=NAT_output_TEMP,"Out_NAT_Trait"=NAT_output_traits_str_TEMP, "LakMergLak"=LakesMergedLakes)
 Final_Output[[Type_of_ecosyst]] <- Final_O_put
 }# ecosyst
 names(Final_Output) <- All_ecosyst
 
-save(Final_Output,file =  "ClustNAT/ClusterNATs.RData")
+save(Final_Output,file =  "ClustNAT/River_ClusterNATs.RData")

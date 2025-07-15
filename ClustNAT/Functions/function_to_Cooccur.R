@@ -57,7 +57,7 @@ cooccur <-
     
     prob_occur <- incidence/N_matrix
     
-    pb <- txtProgressBar(min = 0, max = (nspp + nrow(obs_cooccur)), style = 3)
+    #pb <- txtProgressBar(min = 0, max = (nspp + nrow(obs_cooccur)), style = 3)
     
     row <- 0
     for (spp in 1:nspp){
@@ -103,7 +103,7 @@ cooccur <-
         }
       }
       
-      setTxtProgressBar(pb, spp)
+      #setTxtProgressBar(pb, spp)
       
     }
     
@@ -122,7 +122,7 @@ cooccur <-
       obs_cooccur <- obs_cooccur[exp_cooccur[,3]>=1,,drop = F]
       exp_cooccur <- exp_cooccur[exp_cooccur[,3]>=1,,drop = F]
       n_omitted <- n_pairs2 - nrow(prob_cooccur) + n_omitted
-      pb <- txtProgressBar(min = 0, max = (nspp + nrow(obs_cooccur)), style = 3)
+      #pb <- txtProgressBar(min = 0, max = (nspp + nrow(obs_cooccur)), style = 3)
     }
     
     if(n_omitted == n_pairs){stop("No non-random results.")}
@@ -228,11 +228,11 @@ cooccur <-
       
       output[row,] <- c(sp1,sp2,sp1_inc,sp2_inc,obs_cooccur[row,3],prob_cooccur[row,3],exp_cooccur[row,3],p_lt,p_gt)
       
-      setTxtProgressBar(pb, nspp + row)
+      #setTxtProgressBar(pb, nspp + row)
       
     }
     
-    close(pb)
+    #close(pb)
     
     if (spp_names == TRUE){
       

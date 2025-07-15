@@ -2,6 +2,8 @@
 library(tidyverse);library(viridis)
 library(drc);library(nlme);library(statforbiology)
 
+load("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/12. FunMetaNet/NAT/NAT_FunMetaNET/FakeMetas/OUT_fake_NATs.RData")
+
 FULL_Out_NAT <- data.frame()
 for (repli in 1:length(out)) {
   FULL_Out_NAT <- bind_rows(FULL_Out_NAT,out[[repli]]$Out_NAT)
@@ -86,18 +88,29 @@ cat("For", unique(output_slope$Scenario)[ScenariosS],
     "and Disp is",ifelse(summary(model)$coefficients[3,5]<0.05,"Different","NOdifferent"), "\n")
 }
 
-output_slope%>% group_by(Replicates,Scenario,Type_NATS) %>% 
-                summarise(ED_Curve_accel =mean(ED_Curve_accel ))%>%
-                filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  %>% 
-  #group_by(Scenario,Type_NATS) %>% 
-  #summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=ED_Curve_accel) %>% 
+output_slope%>%
+  mutate(Scenario=
+           case_when(str_detect(Scenario ,"Env") ~ "Environmental-driven assembly",
+                     str_detect(Scenario ,"Spa") ~ "Spatial-driven assembly",
+                     str_detect(Scenario ,"Both") ~ "Both drivers assembly",
+                     str_detect(Scenario ,"Null") ~ "Null assembly")) %>% 
+  mutate(Scenario=factor(Scenario,levels = c("Environmental-driven assembly",
+                                             "Spatial-driven assembly",
+                                             "Both drivers assembly",
+                                             "Null assembly"))) %>%
+  group_by(Replicates,Scenario,Type_NATS) %>% 
+  summarise(ED_Curve_accel =mean(ED_Curve_accel),.groups = "drop")%>%
+  filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  %>%
+  mutate(Type_NATS=
+           case_when(str_detect(Type_NATS ,"Dist") ~ "Distance",
+                     str_detect(Type_NATS ,"Env") ~ "Environment",
+                     str_detect(Type_NATS ,"Rand") ~ "Random")) %>% 
   ggplot(aes(x = Type_NATS, y=ED_Curve_accel  ))+
-  #geom_errorbar(aes(x = Type_NATS, y=ED_Curve_accel,ymin=ED_Curve_accel-Std_Dev ,ymax=ED_Curve_accel+Std_Dev,
-  #                  colour=as.factor(Type_NATS)),alpha=0.5)+
-  geom_violin(aes(fill=as.factor(Type_NATS),color=as.factor(Type_NATS)),alpha=0.2)+
-  geom_jitter(shape=21,aes(fill=as.factor(Type_NATS)),size=2,alpha=0.6,width = 0.1)+
+  geom_violin(aes(fill=as.factor(Type_NATS),color=as.factor(Type_NATS)),alpha=0.1,linewidth=2)+
+  geom_jitter(shape=21,aes(fill=as.factor(Type_NATS)),size=3,alpha=0.6,width = 0.1)+
   scale_fill_viridis(discrete = T)+  scale_colour_viridis(discrete = T)+
-  labs(fill="Type NATS")+ guides(colour="none")+
+  labs(fill="Additive approach",x="",y="Edge density slope")+ 
+  guides(colour="none")+
   facet_wrap(.~Scenario,scale="free")+
   theme_classic()
 

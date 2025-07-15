@@ -1,0 +1,10 @@
+#!/bin/bash
+#SBATCH --job-name=Lak_NAT
+#SBATCH --cpus-per-task=100
+#SBATCH --mem=120GB
+#SBATCH --mail-type=ALL
+# this is the default 
+#SBATCH --time=120:00:00
+
+module load R
+Rscript --vanilla ClustNAT/ClusterNATs.R
