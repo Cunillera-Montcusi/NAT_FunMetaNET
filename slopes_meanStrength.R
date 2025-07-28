@@ -1,26 +1,40 @@
-library(tidyverse)
+
 #install.packages("devtools")
 #devtools::install_github("onofriAndreaPG/aomisc")
-library(aomisc)
+library(tidyverse);library(viridis)
+library(drc);library(nlme);library(statforbiology)
+
 #calcul de pendents LLACS
 load("NATs_lakes_rand_def.RData")
-rand_lakes <- output
+rand_ecosyst <- output
 load("NATs_lakes_env_def.RData")
-env_lakes <- output
+env_ecosyst <- output
 load("NATs_lakes_Dist_def.RData")
-dist_lakes <- output
+dist_ecosyst <- output
 load("NATs_lakes_DisEnv_def.RData")
-DisEnv_lakes <- output
+DisEnv_ecosyst <- output
 load("NATs_lakes_DisDist_def.RData")
-DisDist_lakes <- output
+DisDist_ecosyst <- output
+
+#calcul de pendents RIUS
+load("NATs_riv_rand_def.RData")
+rand_ecosyst <- output
+load("NATs_riv_env_def.RData")
+env_ecosyst <- output
+load("NATs_riv_Dist_def.RData")
+dist_ecosyst <- output
+load("NATs_riv_disEnv_def.RData")
+DisEnv_ecosyst <- output
+load("NATs_riv_DisDits_def.RData")
+DisDist_ecosyst <- output
 
 
 full_output <- bind_rows(
-  rand_lakes%>% mutate(Type_NATS="Random"),
-  env_lakes%>% mutate(Type_NATS="Environment"),
-  dist_lakes%>% mutate(Type_NATS="Distance"),
-  DisEnv_lakes%>% mutate(Type_NATS="Dis_Environment"),
-  DisDist_lakes%>% mutate(Type_NATS="Dis_Distance"))
+  rand_ecosyst%>% mutate(Type_NATS="Random"),
+  env_ecosyst%>% mutate(Type_NATS="Environment"),
+  dist_ecosyst%>% mutate(Type_NATS="Distance"),
+  DisEnv_ecosyst%>% mutate(Type_NATS="Dis_Environment"),
+  DisDist_ecosyst%>% mutate(Type_NATS="Dis_Distance"))
 
 full_output <- full_output %>% filter(Type_NATS%in%c("Random","Environment","Distance"))
 
@@ -29,9 +43,7 @@ type <- unique(full_output$Type_NATS)
 iter <- unique(full_output$iter)
 output_slope <- data.frame()
 
-unique(full_output$n_sites)
-
-for (sceni in 1:6) {
+for (sceni in 1:length(year)) {
   Sceni_full_ouput_temp <-  full_output %>% filter(Year==year[sceni])
   for (ind_type in 1:length(type)) {
   #for (itera in 1:length(iter)) {
@@ -63,6 +75,105 @@ for (sceni in 1:6) {
     output_slope <- rbind(output_slope,output_slope2)
   }
 }
+
+# Anàlisi significació global
+out_Model_List <- list()
+Comparison_data <- output_slope %>% group_by(Year,Type_NATS) %>% 
+    summarise(ED_Curve_accel =mean(ED_Curve_accel ),.groups = "drop" )%>%
+    filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  
+  
+Comparison_data$Type_NATS <- factor(Comparison_data$Type_NATS,levels=c("Random","Environment","Distance"))
+Comparison_data <- within(Comparison_data, Type_NATS <- relevel(Type_NATS, ref = 1))
+  
+model <- lmerTest::lmer(ED_Curve_accel  ~Type_NATS + (1|Year) , data=Comparison_data)
+summary(model)
+cat("For the Lakes", 
+    "Env is", ifelse(summary(model)$coefficients[2,5]<0.05,"Different","NOdifferent"),  
+    "and Disp is",ifelse(summary(model)$coefficients[3,5]<0.05,"Different","NOdifferent"), "\n")
+
+# Anàlisi corrent cada 5 anys (comparem com son les diferències en packs de 5 anys)
+std.error <- function(x) sd(x)/sqrt(length(x))
+output_slope_Running_Mean <- data.frame()
+for (Year_beg in 1:(length(year)-5)) {
+  Posit_beg <- Year_beg
+  Posit_end <- Posit_beg+5
+  
+  Comparison_data <- output_slope %>% group_by(Year,Type_NATS) %>% 
+    filter(Year%in%year[Posit_beg:Posit_end]) %>% 
+    summarise(ED_Curve_accel =mean(ED_Curve_accel ),.groups = "drop" )%>%
+    filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  
+  
+  output_slope_Running_Mean <- bind_rows(output_slope_Running_Mean,
+                                         Comparison_data%>% group_by(Type_NATS) %>% 
+                                           summarise(Sd_ED_Curve_accel =std.error(ED_Curve_accel),
+                                                     ED_Curve_accel =mean(ED_Curve_accel),
+                                                     .groups = "drop" ) %>% 
+                                           mutate(Year=Posit_beg))
+  
+  Comparison_data$Type_NATS <- factor(Comparison_data$Type_NATS,levels=c("Random","Environment","Distance"))
+  Comparison_data <- within(Comparison_data, Type_NATS <- relevel(Type_NATS, ref = 1))
+  
+  model <- lmerTest::lmer(ED_Curve_accel  ~Type_NATS + (1|Year) , data=Comparison_data)
+  summary(model)
+  cat("For the Rivers", 
+      "Env is", ifelse(summary(model)$coefficients[2,5]<0.05,"Different","NOdifferent"),  
+      "and Disp is",ifelse(summary(model)$coefficients[3,5]<0.05,"Different","NOdifferent"), "\n")
+}
+
+
+gridExtra::grid.arrange(
+  gridExtra::arrangeGrob(
+
+output_slope%>% group_by(Year,Type_NATS) %>% 
+  summarise(ED_Curve_accel =mean(ED_Curve_accel ))%>%
+  filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  %>% 
+  #group_by(Scenario,Type_NATS) %>% 
+  #summarise(Std_Dev=sd(ED_Curve_accel),ED_Curve_accel=ED_Curve_accel) %>% 
+  ggplot(aes(x = Type_NATS, y=ED_Curve_accel  ))+
+  #geom_errorbar(aes(x = Type_NATS, y=ED_Curve_accel,ymin=ED_Curve_accel-Std_Dev ,ymax=ED_Curve_accel+Std_Dev,
+  #                  colour=as.factor(Type_NATS)),alpha=0.5)+
+  geom_violin(aes(fill=as.factor(Type_NATS),color=as.factor(Type_NATS)),alpha=0.2,linewidth=2)+
+  geom_jitter(shape=21,aes(fill=as.factor(Type_NATS)),size=2,alpha=0.6,width = 0.1)+
+  scale_fill_viridis(discrete = T)+  scale_colour_viridis(discrete = T)+
+  labs(title="Rivers", fill="Type NATS",x="")+ guides(colour="none",fill="none")+
+  theme_classic(),
+
+output_slope_Running_Mean%>%
+  ggplot(aes(x = Year, y=ED_Curve_accel))+
+  geom_errorbar(aes(x = Year, y=ED_Curve_accel,ymin=ED_Curve_accel-Sd_ED_Curve_accel,ymax=ED_Curve_accel+Sd_ED_Curve_accel ,
+                    colour=as.factor(Type_NATS)),alpha=0.5)+
+  geom_line(aes(colour=Type_NATS),linewidth=1.5, alpha=0.2)+
+  geom_point(shape=21,aes(fill=as.factor(Type_NATS),colour=as.factor(Type_NATS)),size=4,alpha=0.6,stroke=1)+
+  scale_fill_viridis(discrete = T)+  scale_colour_viridis(discrete = T)+
+  labs(fill="Type NATS")+ guides(colour="none")+
+  #facet_wrap(.~Type_NATS)+labs(fill="Year")+
+  theme_classic(),
+
+ncol=2 ,widths=c(1,2))
+)
+
+
+
+
+
+
+output_slope%>% group_by(Year,Type_NATS) %>% 
+  summarise(ED_Curve_accel =mean(ED_Curve_accel ))%>%
+  ggplot(aes(x = Year, y=ED_Curve_accel))+
+  #geom_errorbar(aes(x = Year, y=ED_Curve_accel,ymin=ED_Curve_accel-Std_Dev ,ymax=ED_Curve_accel+Std_Dev,
+  #                  colour=as.factor(Type_NATS)),alpha=0.5)+
+  geom_line(aes(colour=Type_NATS),linewidth=1.5, alpha=0.2)+
+  geom_point(shape=21,aes(fill=as.factor(Type_NATS),colour=as.factor(Type_NATS)),size=4,alpha=0.6,stroke=1)+
+  scale_fill_viridis(discrete = T)+  scale_colour_viridis(discrete = T)+
+  labs(fill="Type NATS")+ guides(colour="none")+
+  #facet_wrap(.~Type_NATS)+labs(fill="Year")+
+  theme_classic()
+
+
+
+
+
+
 
 
 # Merge with richness
