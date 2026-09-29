@@ -6,7 +6,7 @@ library(parallel)
 
 Final_Output <- list()
 
-All_ecosyst <- c("river") # ,"lake"
+All_ecosyst <- c("lake","river")
 for (Type_of_ecosyst in 1:length(All_ecosyst)) {
 ecosyst <- All_ecosyst[Type_of_ecosyst]
   
@@ -52,7 +52,7 @@ ecosyst <- All_ecosyst[Type_of_ecosyst]
 Addition_sequence<-c(1:15,seq(17,(length(unique(macros_lakes_list$site))-1),5),length(unique(macros_lakes_list$site)))
 #Addition_sequence <- c(1,3,5,7,9,11,13,15,20,25,35,45,56)
 #Number_of_iterations<-length(unique(macros_lakes_list$site))
-Number_of_iterations <- 35
+Number_of_iterations <- 56
 
 # All years 
 years <- unique(macros_lakes_list$year)
@@ -242,4 +242,4 @@ Final_Output[[Type_of_ecosyst]] <- Final_O_put
 }# ecosyst
 names(Final_Output) <- All_ecosyst
 
-save(Final_Output,file =  "ClustNAT/River_ClusterNATs.RData")
+save(Final_Output,file =  "ClustNAT/ClusterNATs.RData")

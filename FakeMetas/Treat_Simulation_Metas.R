@@ -2,12 +2,20 @@
 library(tidyverse);library(viridis)
 library(drc);library(nlme);library(statforbiology)
 
-load("C:/Users/David CM/Dropbox/DAVID DOC/LLAM al DIA/12. FunMetaNet/NAT/NAT_FunMetaNET/FakeMetas/OUT_fake_NATs.RData")
+load("FakeMetas/OUT_fake_NATs.RData")
 
 FULL_Out_NAT <- data.frame()
 for (repli in 1:length(out)) {
   FULL_Out_NAT <- bind_rows(FULL_Out_NAT,out[[repli]]$Out_NAT)
 }
+
+
+FULL_Out_NAT <- FULL_Out_NAT %>% filter(Type_NATS%in%c("Rand", "Dist", "Env")) %>% 
+                                 mutate(Type_NATS=ifelse(Type_NATS=="Rand","RO",
+                                                  ifelse(Type_NATS=="Dist","SD",
+                                                  ifelse(Type_NATS=="Env","ES","Error")))) %>% 
+                                 mutate(Type_NATS=factor(Type_NATS,levels=c("SD","ES","RO")))
+
 
 #4. Plot and analysis ####
 FULL_Out_NAT %>%
@@ -31,7 +39,7 @@ for (repli in 1:length(out)) {
       #for (itera in 1:length(iter)) {
       # We create a "temporary" file filtered according to the TypeNat selected. 
       full_ouput_temp <- Sceni_full_ouput_temp %>% filter(Type_NATS==type[ind_type])#,iter==iter[itera]) # En cas de voler filtrar per iteració
-      random <- Sceni_full_ouput_temp %>% filter(Type_NATS=="Rand") %>%#,iter==iter[itera]) %>% 
+      random <- Sceni_full_ouput_temp %>% filter(Type_NATS=="RO") %>%#,iter==iter[itera]) %>% 
                                           group_by(n_sites)%>%summarise_if(is.numeric, ~mean(.))
       
       model_Random <- lm(mean_grStre~(as.numeric(n_sites)), data=random)
@@ -72,13 +80,13 @@ for (repli in 1:length(out)) {
 
 
 out_Model_List <- list()
+size_effects <- data.frame()
 for (ScenariosS in 1:length(unique(output_slope$Scenario))) {
 Comparison_data <- output_slope %>% group_by(Replicates,Scenario,Type_NATS) %>% 
                                     summarise(ED_Curve_accel =mean(ED_Curve_accel ),.groups = "drop" )%>%
-                                    filter(Scenario==unique(output_slope$Scenario)[ScenariosS]) %>% 
-                                    filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  
+                                    filter(Scenario==unique(output_slope$Scenario)[ScenariosS])
 
-Comparison_data$Type_NATS <- factor(Comparison_data$Type_NATS,levels=c("Rand","Env","Dist"))
+Comparison_data$Type_NATS <- factor(Comparison_data$Type_NATS,levels=c("RO","ES","SD"))
 Comparison_data <- within(Comparison_data, Type_NATS <- relevel(Type_NATS, ref = 1))
 
 model <- lmerTest::lmer(ED_Curve_accel  ~Type_NATS + (1|Replicates) , data=Comparison_data)
@@ -86,25 +94,61 @@ out_Model_List[[ScenariosS]] <- summary(model)
 cat("For", unique(output_slope$Scenario)[ScenariosS], 
     "Env is", ifelse(summary(model)$coefficients[2,5]<0.05,"Different","NOdifferent"),  
     "and Disp is",ifelse(summary(model)$coefficients[3,5]<0.05,"Different","NOdifferent"), "\n")
+
+out_size_effects <- data.frame(
+  "Scenario"=unique(output_slope$Scenario)[ScenariosS],
+  "RO"=summary(model)$coefficients[1,1:2],
+  "ES"=summary(model)$coefficients[2,1:2],
+  "SD"=summary(model)$coefficients[3,1:2]) %>% 
+  tibble::rownames_to_column() %>% 
+  pivot_longer(3:5)
+
+size_effects <- size_effects %>% bind_rows(out_size_effects)
+
 }
 
-output_slope%>%
+Test_eff_size <- size_effects%>%
+  mutate(name=factor(name,levels=c("SD","ES","RO"))) %>% 
   mutate(Scenario=
-           case_when(str_detect(Scenario ,"Env") ~ "Environmental-driven assembly",
-                     str_detect(Scenario ,"Spa") ~ "Spatial-driven assembly",
-                     str_detect(Scenario ,"Both") ~ "Both drivers assembly",
-                     str_detect(Scenario ,"Null") ~ "Null assembly")) %>% 
-  mutate(Scenario=factor(Scenario,levels = c("Environmental-driven assembly",
-                                             "Spatial-driven assembly",
-                                             "Both drivers assembly",
-                                             "Null assembly"))) %>%
-  group_by(Replicates,Scenario,Type_NATS) %>% 
-  summarise(ED_Curve_accel =mean(ED_Curve_accel),.groups = "drop")%>%
-  filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  %>%
-  mutate(Type_NATS=
-           case_when(str_detect(Type_NATS ,"Dist") ~ "Distance",
-                     str_detect(Type_NATS ,"Env") ~ "Environment",
-                     str_detect(Type_NATS ,"Rand") ~ "Random")) %>% 
+           case_when(str_detect(Scenario ,"Env") ~ "EFS",
+                     str_detect(Scenario ,"Spa") ~ "SAS",
+                     str_detect(Scenario ,"Both") ~ "SAS+EFS",
+                     str_detect(Scenario ,"Null") ~ "NAS")) %>% 
+  mutate(Scenario=factor(Scenario,levels = c("EFS",
+                                             "SAS",
+                                             "SAS+EFS",
+                                             "NAS"))) %>%
+  # group_by(Replicates,Scenario,Type_NATS) %>% 
+  # summarise(ED_Curve_accel =mean(ED_Curve_accel),.groups = "drop")%>%
+  # filter(!Type_NATS%in%c("Dis_Env","Dis_Dist"))  %>%
+  pivot_wider(names_from = rowname, values_from  = value) 
+    
+Ref_Eff_Size <- Test_eff_size %>% filter(name=="RO")
+
+png(filename = "FakeMetas/NATs_FakeMetas.png",width =1500,height = 2000,res = 300) 
+Test_eff_size %>% #filter(name!="RB") %>% 
+                  left_join(Ref_Eff_Size, by=c("Scenario")) %>% 
+                  mutate(Size_Effect=Estimate.y+Estimate.x) %>% 
+                  mutate(Size_Effect=ifelse(name.x=="RO",Estimate.y,Size_Effect)) %>% 
+
+  ggplot()+
+  geom_rect(data = Ref_Eff_Size, aes(xmax =Estimate+`Std. Error`,xmin = Estimate-`Std. Error`,ymin=0,ymax=Inf),
+        alpha=0.1,fill="grey30")+#viridis(n = 3,option = "D",direction = 1)[3])+
+  geom_linerange(aes(x=Size_Effect,y=name.x, xmin=Size_Effect-`Std. Error.x`,xmax=Size_Effect+`Std. Error.x`),
+                 linewidth=1.2)+
+  geom_point(aes(y=name.x,x=Size_Effect,fill=name.x,colour=name.x),size=4,shape=21)+
+  scale_fill_viridis(option = "D",direction = 1,discrete = T)+
+  scale_colour_viridis(option = "D",direction = 1,discrete = T)+
+  labs(title="Metacommunity simulations size effects",y="",x="Effect size",
+       colour="Additive approach",fill="Additive approach")+
+    facet_wrap(.~Scenario,ncol=1,strip.position = 'right',scales="free")+
+    theme_classic()+
+    theme(strip.text.y = element_text(angle = 0), 
+          panel.background = element_rect(colour="black"))
+dev.off()
+    
+
+output_slope %>% 
   ggplot(aes(x = Type_NATS, y=ED_Curve_accel  ))+
   geom_violin(aes(fill=as.factor(Type_NATS),color=as.factor(Type_NATS)),alpha=0.1,linewidth=2)+
   geom_jitter(shape=21,aes(fill=as.factor(Type_NATS)),size=3,alpha=0.6,width = 0.1)+

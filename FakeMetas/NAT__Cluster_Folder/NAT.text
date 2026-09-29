@@ -1,0 +1,10 @@
+#!/bin/bash
+#SBATCH --job-name=NAT
+#SBATCH --cpus-per-task=25
+#SBATCH --mem=130GB
+#SBATCH --mail-type=ALL
+# this is the default 
+#SBATCH --time=120:00:00
+
+module load R
+Rscript --vanilla NAT/Simulation_Metas.R

@@ -1,48 +1,41 @@
 
 # Beginning ####
-# We upload the necessary datasets and packages
-library(tidyverse); library(geosphere); library(doParallel); library(parallel)
+library(tidyverse)# library(cooccur)
+library(geosphere)
+library(doParallel)
+library(parallel)
 
-# We charge lakes coordinates to work with a realistic regional structure (lakes distribution) 
-Lakes_coord <- readxl::read_excel("NAT/lake_coord_surface.xlsx")
 #Lakes_coord <- readxl::read_excel("data/Lakes/lake_coord_surface.xlsx")
+Lakes_coord <- readxl::read_excel("NAT/lake_coord_surface.xlsx")
 
-# Major parameters to be defined before the simulations
-## These parameters are all the same for each simulation
 Gamma_div <- 210 # Warning: A change in GAMMA diversity might impact some values linked to the filters (divided by 210)
-J.freshwater<-rep(150,nrow(Lakes_coord)) # J is the size of each community. Equal for all sites
+J.freshwater<-rep(150,nrow(Lakes_coord)) # J is the size of each community. Constant in this case
 id_NOmodule <- rep(1,nrow(Lakes_coord)) # Modules just mean if we want some sites to belong to the same module. 
 pool_200 <- rep(1,Gamma_div) # Distribution of the species pool #rlnorm(n = 200,5,1) 
 Meta_t0 <- matrix(nrow = length(pool_200), ncol =nrow(Lakes_coord), 1) #Previous Metacommunity (for considering time relevance)
 
 
 # 1. Replicates ####
-# A replicate is defined as an independent metacommunity (an independent study case) that we use for comparison
-# For each replicate we are going to analyse different scenarios. 
 cl <- detectCores() #Number of cores in computer
 registerDoParallel(cl)
 
 Number_Of_Replicates <- 15
 out <- foreach(Replicates=1:Number_Of_Replicates)%dopar%{
 #for (Replicates in 1:6) {
-library(tidyverse);library(geosphere)# We need to recharge the packages again.
-source("NAT/H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R") # Function to run simulated metacommunities
-source("NAT/function_to_Cooccur.R") # Function from package coocur
+library(tidyverse);library(geosphere)# Somehow we need to recharge the packages again.
+source("NAT/H2020_Lattice_expKernel_Jenv_TempMeta_DispStr.R")
+source("NAT/function_to_Cooccur.R")  
 
 Community_Scenarios <- list()
 Rand_Filt_list <- list()
 
+# Scenari reffers to how many scenarios do we use. So far four: Env, Spa, Both, Null
 # 2. Scenari ####
-## Scenari reffers to the four scenarios that we will use : Env, Spa, Both, Null.
-## An scenario consists on the activation or desactivation of different drivers from which a 
-## a metacommunity will be simulated and NATs calculated  
 Scenarios <- c("Env","Spa", "Both", "Null")
 
 for (Scenari in 1:length(Scenarios)) {
-  
-# 2.1. Filter assignation and elaboration ####
+# 2.1. Filter assignation and ellaboration ####
 # We generate a filter that benefits some packs of 15 species and punishes the others. 
-## WE WILL only use 6 of this "filter" packs
 # A filter that benefits is a "high" value -- 0.99 #Never write 1!
 # A filter that punishes is a "low" value -- 0.1 
 FilterS_to_Assign <- list()
@@ -71,7 +64,7 @@ colnames(Trait_Matrix) <- c("Sp_Name",paste("Tra",seq(1:(ncol(Trait_Matrix)-1)),
 # We assign and create different "trait profiles" based on the distributed traits. We sum different sections of traits 
 # from species and create a table containing the sum of traits for those species. 
 # Having a determined value will represent the belonging of that species to a "functional group" and will define 
-# a link with an environmental filter (in the following lines)
+# a link with a environmental filter (in the following lines)
 Trait_Filter_Profile1 <- c();Trait_Filter_Profile2 <- c()
 Trait_Filter_Profile3 <- c();Trait_Filter_Profile4 <- c()
 Trait_Filter_Profile5 <- c();Trait_Filter_Profile6 <- c()
@@ -83,41 +76,39 @@ Trait_Filter_Profile4[Spp_Trait] <- sum(Trait_Matrix[Spp_Trait,(ceiling(118/6)*3
 Trait_Filter_Profile5[Spp_Trait] <- sum(Trait_Matrix[Spp_Trait,(ceiling(118/6)*4):(ceiling(118/6)*5)])  
 Trait_Filter_Profile6[Spp_Trait] <- sum(Trait_Matrix[Spp_Trait,(ceiling(118/6)*5):((118/6)*6)])  
 }
-Trait_Performance <- rbind(Trait_Filter_Profile1,Trait_Filter_Profile2,Trait_Filter_Profile3,
-                           Trait_Filter_Profile4,Trait_Filter_Profile5,Trait_Filter_Profile6)
+Trait_Performance <- rbind(Trait_Filter_Profile1,Trait_Filter_Profile2,Trait_Filter_Profile3,Trait_Filter_Profile4,
+          Trait_Filter_Profile5,Trait_Filter_Profile6)
 
 # We create a "non-filter" scenario where everywhere and everyone is 0.99 
 Filter_NO_Filter <- matrix(ncol=nrow(Lakes_coord),nrow =length(rep(1,Gamma_div)) ,data=0.99)
 
 # Here we select the filters that we want that can be selected randomly or manually to set specific 
 ## environmental selection (e.g. only 1 type of filter is present everywhere for example... or whatever)
-#Rand_Filt <- sample(rep(1:14,56),size=56,replace = F) # We randomly select different types of filters to assign 
+#Rand_Filt <- sample(rep(1:14,56),size=56,replace = F) # We randomly select different tipes of filters to assign 
 
-# Based on the previous selection we assign the corresponding filters in a table that will be later used 
+# Based onthe previous selection we assign the corresponding filters in a table that will be later used 
 ## in the coalescent model to set environmental impact.
 Filter_Scen <- matrix(ncol=nrow(Lakes_coord),nrow =length(rep(1,Gamma_div)) ,data=0.05)
 Perc_Of_Filter_Assignment <- 0.95
 Sites_With_Filter <- sample(1:ncol(Filter_Scen),size = ncol(Filter_Scen)*Perc_Of_Filter_Assignment,replace = F)
-Order_Sites_With_Filter <- c(round(seq(from=1,to=length(Sites_With_Filter),by=length(Sites_With_Filter)/6)),
-                             length(Sites_With_Filter))
+Order_Sites_With_Filter <- c(round(seq(from=1,to=length(Sites_With_Filter),by=length(Sites_With_Filter)/6)),length(Sites_With_Filter))
 for (Assign_Filter in 1:nrow(Trait_Performance)) {
 Spp_to_Assing <- which(Trait_Performance[Assign_Filter,]>5)
 Sites_to_Filter <- Sites_With_Filter[Order_Sites_With_Filter[Assign_Filter]:Order_Sites_With_Filter[Assign_Filter+1]]
 Filter_Scen[Spp_to_Assing,Sites_to_Filter] <- FilterS_to_Assign[[Assign_Filter]][Spp_to_Assing]
 }
-# "Random filter" is only a name that corresponds to an object summarizing the filters in each lake. The name is arbitrary.
+# Random filter is only summarising the filters in each lake. The name is arbitrary.
 #for(Sites in 1:56){
 #  print(length(which(Filter_Scen[,Sites]==0.99)))
 #}
 Rand_Filt <-apply(Filter_Scen,2,mean)
 
-# We set different dispersal abilities for the species. We distributed them like this so 
+# We set different dispersal abilities for the species. We distributied them like this so 
 # species with different trait configurations have different dispersal abilities
 Disp_Str <- c(rep(1,Gamma_div/3),rep(2,Gamma_div/3),rep(3,Gamma_div/3))
 
 # 2.3. Distance and dispersal ####
-# Distance matrix corresponding to distances between lakes. We modify these distances by a threshold distance in order to 
-## force mid and low dispersers to not have access to some of the sites. 
+# Distance matrix corresponding to distances between lakes
 Dist_True_Matr <- distm(Lakes_coord[,2:3])/1000
 Dist_Matr_High <- Dist_True_Matr
 Dist_Matr_Mid <- ifelse(Dist_True_Matr>250,100000,Dist_True_Matr)

@@ -148,10 +148,19 @@ Merged_Traits <- bind_rows(
              str_detect(Tra ,"X..6") ~ "pH" # WARNING !!!!
            ))
   
- 
+#save(Merged_Traits,file =  "ClustNAT/Ind_Trait_Values.RData")
+load("ClustNAT/Ind_Trait_Values.RData")
+
+Merged_Traits <- Merged_Traits %>% mutate(Type_NATS=ifelse(Type_NATS=="Random","RO",
+                          ifelse(Type_NATS=="Distance","SD",
+                          ifelse(Type_NATS=="Environment","ES","Error")))) %>% 
+  mutate(Type_NATS=factor(Type_NATS,levels=c("SD","ES","RO"))) %>% 
+  mutate(Ecosy=ifelse(Ecosy=="River","Stream",Ecosy))
+  
+
 Big_Drop <- Merged_Traits %>% 
   filter(n_sites%in%c(1,39,56)) %>% 
-  filter(Type_NATS=="Random") %>% 
+  #filter(Type_NATS=="Random") %>% 
   group_by(Ecosy,Type_NATS,n_sites,Trait_Cat,Tra) %>% 
   summarise(Mean_Gr=mean(log(gr_Stre+1)),
             Mean_Bet=mean(log(betw_Stre+1))
@@ -166,9 +175,15 @@ Big_Drop <- Merged_Traits %>%
 write.csv2(x = Big_Drop %>% filter(Drop=="Yes"), file = "C:/Users/David CM/Desktop/Traits_Drop.csv")
   
 
+Mean_values_lines_plot <- Merged_Traits %>% 
+  filter(Type_NATS=="RO") %>% group_by(Ecosy) %>% 
+  summarise(Mean_Line_Stre=mean(log(gr_Stre+1)),
+            Mean_Line_Betw=mean(log(betw_Stre+1)))
+
+
 Merged_Traits %>% 
   #filter(n_sites%in%c(1)) %>% 
-  filter(Type_NATS=="Random") %>% 
+  #filter(Type_NATS=="Random") %>% 
   filter(Tra%in%c("aquatic.passive","aquatic.active","aerial.passive","aerial.active")) %>% 
   group_by(Ecosy,Type_NATS,n_sites,Tra) %>% 
   summarise(Mean_Gr=mean(log(gr_Stre+1)),
@@ -182,6 +197,139 @@ Merged_Traits %>%
   scale_color_viridis(discrete = T,direction = -1)+
   facet_wrap(Ecosy~Type_NATS)+
   theme_classic()
+
+png(filename = "ClustNAT/AllType_NAT_traits.png",width =2000,height = 1800,res = 300) 
+Merged_Traits %>% 
+  filter(Type_NATS=="RO") %>% 
+  filter(n_sites%in%c(1,39,56)) %>% 
+  group_by(Ecosy,Type_NATS,n_sites,Trait_Cat,Tra) %>% 
+  summarise(Mean_Gr=mean(log(gr_Stre+1)),
+            Mean_Bet=mean(log(betw_Stre+1)),
+            SD_Gr=sd(log(gr_Stre+1)),
+            SD_Bet=sd(log(betw_Stre+1))) %>% 
+  mutate(n_sites=ifelse(n_sites<10,"Local (Ind. Communities)","Regional (Metacommunity)")) %>% 
+  left_join(Big_Drop,by=c("Ecosy","Type_NATS","Trait_Cat","Tra")) %>%
+  left_join(Mean_values_lines_plot,by=c("Ecosy")) %>%
+  #filter(Drop=="Yes") %>% 
+  ggplot()+
+  geom_vline(aes(xintercept = Mean_Line_Stre),size=0.7,colour="grey50",linetype=2)+
+  geom_hline(aes(yintercept = Mean_Line_Betw),size=0.7,colour="grey50",linetype=2)+
+  # geom_linerange(aes(y=Mean_Bet, x=Mean_Gr, xmin=(Mean_Gr-SD_Gr),
+  #                    xmax=(Mean_Gr+SD_Gr),colour=as.factor(n_sites)),alpha=1)+
+  # geom_linerange(aes(x=Mean_Gr, y=Mean_Bet,ymin=(Mean_Bet-SD_Bet),
+  #                    ymax=(Mean_Bet+SD_Bet),colour=as.factor(n_sites)),alpha=1)+
+  geom_path(aes(x=Mean_Gr,y=Mean_Bet,group=Tra,alpha=Drop),linewidth = 1 ,colour="grey50",
+            arrow = arrow(type="closed",length = unit(0.25,"cm")))+
+  # geom_point(aes(x=Mean_Gr,y=Mean_Bet,fill=as.factor(n_sites),shape=as.factor(n_sites)),colour="black",
+  #            size=3,alpha=1)+
+  #geom_smooth(aes(group=Tra),linewidth=0.2,method="lm",colour="black",se=F)+
+  scale_fill_manual(values = c(viridis(n = 2,option = "B",direction = 1)))+
+  scale_color_manual(values = c(viridis(n = 2,option = "B",direction = 1)))+
+  scale_linewidth_manual(values=c(0.5,2))+
+  scale_alpha_manual(values=c(0.2,0.6))+
+  scale_shape_manual(values = c(22,23))+
+  facet_wrap(.~Ecosy, ncol=2)+
+  labs(title="Cross-traits network role",
+       colour="Scale",shape="Scale",
+       y="Trait Betweenness (log-scale)",x="Trait Strength (log-scale)")+
+  theme_classic()+
+  theme(legend.position = "bottom")
+dev.off()
+
+png(filename = "ClustNAT/Article_traits_Supp.png",width =2000,height = 1800*2,res = 300) 
+Merged_Traits %>% 
+  #filter(Type_NATS=="RO") %>% 
+  filter(n_sites%in%c(1,5,39,56)) %>% 
+  group_by(Ecosy,Type_NATS,n_sites,Trait_Cat,Tra) %>% 
+  summarise(Mean_Gr=mean(log(gr_Stre+1)),
+            Mean_Bet=mean(log(betw_Stre+1)),
+            SD_Gr=sd(log(gr_Stre+1)),
+            SD_Bet=sd(log(betw_Stre+1))) %>% 
+  mutate(Name_n_sites=ifelse(n_sites<5,"Local (Ind. Communities)",
+                      ifelse(n_sites<30 & n_sites>4,"Mid-scale (5 communities merged)",
+                      "Regional (All communities)"))) %>% 
+  left_join(Big_Drop,by=c("Ecosy","Type_NATS","Trait_Cat","Tra")) %>% 
+  filter(Drop=="Yes") %>% 
+  ggplot()+
+  geom_vline(xintercept = 5,size=0.7,colour="grey50",linetype=2)+
+  geom_hline(yintercept = 40,size=0.7,colour="grey50",linetype=2)+
+  geom_linerange(aes(y=Mean_Bet, x=Mean_Gr, xmin=(Mean_Gr-SD_Gr),
+                     xmax=(Mean_Gr+SD_Gr),colour=as.factor(Name_n_sites)),alpha=1)+
+  geom_linerange(aes(x=Mean_Gr, y=Mean_Bet,ymin=(Mean_Bet-SD_Bet),
+                     ymax=(Mean_Bet+SD_Bet),colour=as.factor(Name_n_sites)),alpha=1)+
+  geom_path(aes(x=Mean_Gr,y=Mean_Bet,group=Tra),linewidth = 1 ,colour="grey50",
+            arrow = arrow(type="closed",length = unit(0.25,"cm")))+
+  geom_point(aes(x=Mean_Gr,y=Mean_Bet,fill=as.factor(Name_n_sites),shape=as.factor(Name_n_sites)),colour="black",
+             size=3)+
+  #geom_smooth(aes(group=Tra),linewidth=0.2,method="lm",colour="black",se=F)+
+  scale_fill_manual(values = c(viridis(n = 3,option = "B",direction = 1)))+
+  scale_color_manual(values = c(viridis(n = 3,option = "B",direction = 1)))+
+  scale_linewidth_manual(values=c(0.5,2))+
+  scale_alpha_manual(values=c(1,0.6))+
+  scale_shape_manual(values = c(22,23,24))+
+  facet_wrap(Type_NATS~Ecosy, ncol=2)+
+  labs(title="Cross-scale trait network roles",
+       colour="Scale",shape="Scale",fill="Scale",
+       y="Trait Betweenness (log-scale)",x="Trait Strength (log-scale)")+
+  theme_classic()+
+  theme(legend.position = "bottom")
+dev.off()
+
+
+
+png(filename = "ClustNAT/Article_traits.png",width =2000,height = 1800,res = 300) 
+Merged_Traits %>% 
+  filter(Type_NATS=="RO") %>% 
+  filter(n_sites%in%c(1,5,39,56)) %>% 
+  group_by(Ecosy,Type_NATS,n_sites,Trait_Cat,Tra) %>% 
+  summarise(Mean_Gr=mean(log(gr_Stre+1)),
+            Mean_Bet=mean(log(betw_Stre+1)),
+            SD_Gr=sd(log(gr_Stre+1)),
+            SD_Bet=sd(log(betw_Stre+1))) %>% 
+  mutate(Name_n_sites=ifelse(n_sites<5,"Local (Ind. Communities)",
+                             ifelse(n_sites<30 & n_sites>4,"Mid-scale (5 communities merged)",
+                                    "Regional (All communities)"))) %>% 
+  left_join(Big_Drop,by=c("Ecosy","Type_NATS","Trait_Cat","Tra")) %>% 
+  left_join(Mean_values_lines_plot,by=c("Ecosy")) %>%
+  filter(Drop=="Yes") %>% 
+  ggplot()+
+  geom_vline(aes(xintercept = Mean_Line_Stre),size=0.7,colour="grey50",linetype=2)+
+  geom_hline(aes(yintercept = Mean_Line_Betw),size=0.7,colour="grey50",linetype=2)+
+  geom_linerange(aes(y=Mean_Bet, x=Mean_Gr, xmin=(Mean_Gr-SD_Gr),
+                     xmax=(Mean_Gr+SD_Gr),colour=as.factor(Name_n_sites)),alpha=1)+
+  geom_linerange(aes(x=Mean_Gr, y=Mean_Bet,ymin=(Mean_Bet-SD_Bet),
+                     ymax=(Mean_Bet+SD_Bet),colour=as.factor(Name_n_sites)),alpha=1)+
+  geom_path(aes(x=Mean_Gr,y=Mean_Bet,group=Tra),linewidth = 1 ,colour="grey50",
+            arrow = arrow(type="closed",length = unit(0.25,"cm")))+
+  geom_point(aes(x=Mean_Gr,y=Mean_Bet,fill=as.factor(Name_n_sites),shape=as.factor(Name_n_sites)),colour="black",
+             size=3)+
+  #geom_smooth(aes(group=Tra),linewidth=0.2,method="lm",colour="black",se=F)+
+  scale_fill_manual(values = c(viridis(n = 3,option = "B",direction = 1)))+
+  scale_color_manual(values = c(viridis(n = 3,option = "B",direction = 1)))+
+  scale_linewidth_manual(values=c(0.5,2))+
+  scale_alpha_manual(values=c(1,0.6))+
+  scale_shape_manual(values = c(22,23,24))+
+  facet_wrap(.~Ecosy, ncol=2)+
+  labs(title="Cross-scale trait network roles",
+       colour="Scale",shape="Scale",fill="Scale",
+       y="Trait Betweenness (log-scale)",x="Trait Strength (log-scale)")+
+  theme_classic()+
+  theme(legend.position = "bottom")
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 gridExtra::grid.arrange(
 Merged_Traits %>% 

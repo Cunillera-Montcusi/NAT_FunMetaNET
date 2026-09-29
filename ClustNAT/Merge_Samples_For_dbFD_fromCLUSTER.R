@@ -16,13 +16,13 @@ library(tidyverse)
 # We charge the dataset and we eliminate the Lake and Year columns to make it more real to what we will have ;) 
 
 # Lakes
-sp_sites <- read.csv2("data/DataAnnaTest/fuzzy_traits.csv",dec = ".") #%>% mutate(Year=as.character(Year)) %>% mutate_if(is.numeric,~ifelse(.>0,1,0)) %>% mutate(Year=as.numeric(Year))
-load("data/DataAnnaTest/dis_traits_lake.RData")
+sp_sites <- read.csv2("ClustNAT/data/dbFD/fuzzy_traits.csv",dec = ".") #%>% mutate(Year=as.character(Year)) %>% mutate_if(is.numeric,~ifelse(.>0,1,0)) %>% mutate(Year=as.numeric(Year))
+load(paste(getwd(),"/data/dbFD/dis_traits_lake.RData",sep=""))
 
 # Rivers
-sp_sites <- readxl::read_excel("data/DataAnnaTest/sp_rivers.xlsx")
+sp_sites <- readxl::read_excel("ClustNAT/data/dbFD/sp_rivers.xlsx")
 colnames(sp_sites)[4:length(colnames(sp_sites))] <- paste("X",colnames(sp_sites)[4:length(colnames(sp_sites))],sep="")
-load("data/DataAnnaTest/dis_traits_river.RData")
+load("ClustNAT/data/dbFD/dis_traits_river.RData")
 
 load("ClustNAT/ClusterNATs.RData")
 
